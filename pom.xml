@@ -7,13 +7,11 @@
 	<version>0.1.0</version>
 	<name>Cameras</name>
 	<description>Hand held cameras in minecraft</description>
-
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>21</maven.compiler.source>
 		<maven.compiler.target>21</maven.compiler.target>
 	</properties>
-
 	<build>
 		<sourceDirectory>src</sourceDirectory>
 		<plugins>
@@ -41,7 +39,6 @@
 			</resource>
 		</resources>
 	</build>
-
 	<repositories>
 		<!-- Paper's Maven repo (replaces the old, now largely unmaintained spigot snapshot repo) -->
 		<repository>
@@ -54,7 +51,6 @@
 			<url>https://jitpack.io</url>
 		</repository>
 	</repositories>
-
 	<dependencies>
 		<!-- Paper API is fully binary compatible with Spigot/Bukkit plugins,
 		     so this covers everything the old spigot-api dependency provided,
@@ -70,11 +66,19 @@
 		     that's fine too, AS LONG AS the plugin never actually calls into these
 		     classes at runtime unless settings.yml explicitly asks for ITEMSADDER items
 		     (see ItemManager.java) — the JVM only loads a class the first time it's
-		     actually referenced. -->
+		     actually referenced.
+
+		     NOTE: groupId/artifactId changed. The old coordinates
+		     com.github.LoneDev6:API-ItemsAdder:master no longer resolve on JitPack
+		     ("master" isn't a published version there). The project's README now
+		     publishes under dev.lone:api-itemsadder with actual release tags.
+		     Latest tag as of writing: 4.0.2-beta-release-11. Check
+		     https://github.com/LoneDev6/API-ItemsAdder/releases for a newer one
+		     before bumping. -->
 		<dependency>
-			<groupId>com.github.LoneDev6</groupId>
-			<artifactId>API-ItemsAdder</artifactId>
-			<version>master</version>
+			<groupId>dev.lone</groupId>
+			<artifactId>api-itemsadder</artifactId>
+			<version>4.0.2-beta-release-11</version>
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
