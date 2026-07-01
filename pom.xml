@@ -45,10 +45,14 @@
 			<id>papermc</id>
 			<url>https://repo.papermc.io/repository/maven-public/</url>
 		</repository>
-		<!-- JitPack, used to resolve the ItemsAdder API (LoneDev6/API-ItemsAdder is only published there) -->
+		<!-- LoneDev6's own Maven repo. This is where the ItemsAdder API is actually
+		     published under its real dev.lone:api-itemsadder coordinates.
+		     (JitPack is NOT used here: JitPack would force com.github.LoneDev6
+		     as the groupId regardless of what the project's own pom declares,
+		     which is why dev.lone:api-itemsadder never resolved through jitpack.io.) -->
 		<repository>
-			<id>jitpack.io</id>
-			<url>https://jitpack.io</url>
+			<id>matteodev</id>
+			<url>https://maven.devs.beer/</url>
 		</repository>
 	</repositories>
 	<dependencies>
@@ -68,17 +72,18 @@
 		     (see ItemManager.java) — the JVM only loads a class the first time it's
 		     actually referenced.
 
-		     NOTE: groupId/artifactId changed. The old coordinates
-		     com.github.LoneDev6:API-ItemsAdder:master no longer resolve on JitPack
-		     ("master" isn't a published version there). The project's README now
-		     publishes under dev.lone:api-itemsadder with actual release tags.
-		     Latest tag as of writing: 4.0.2-beta-release-11. Check
-		     https://github.com/LoneDev6/API-ItemsAdder/releases for a newer one
-		     before bumping. -->
+		     NOTE: this is NOT published on JitPack (the com.github.LoneDev6
+		     coordinates only ever worked by accident/mistake) nor on Maven
+		     Central. It's published on the author's own repo, maven.devs.beer,
+		     under dev.lone:api-itemsadder. GitHub release tags on the
+		     API-ItemsAdder repo do NOT reliably match what's actually published
+		     there — always check the real listing before bumping:
+		     https://maven.devs.beer/dev/lone/api-itemsadder/
+		     Latest published there as of writing: 4.0.10. -->
 		<dependency>
 			<groupId>dev.lone</groupId>
 			<artifactId>api-itemsadder</artifactId>
-			<version>4.0.2-beta-release-11</version>
+			<version>4.0.10</version>
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
