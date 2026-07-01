@@ -22,8 +22,8 @@ import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.profile.PlayerProfile;
-import org.bukkit.profile.ProfileProperty;
+import com.destroystokyo.paper.profile.PlayerProfile;
+import com.destroystokyo.paper.profile.ProfileProperty;
 
 import water.of.cup.commands.CameraCommands;
 import water.of.cup.listeners.CameraClick;
