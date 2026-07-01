@@ -104,4 +104,8 @@ public class ResourcePackManager {
         return this.imageHashMap;
     }
 
+    public boolean isLoaded() {
+        return this.resourcePackFile != null && !this.imageHashMap.isEmpty();
+    }
+
 }
