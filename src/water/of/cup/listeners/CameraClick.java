@@ -1,10 +1,6 @@
 package water.of.cup.listeners;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -12,6 +8,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 
+import water.of.cup.Camera;
+import water.of.cup.ItemManager;
 import water.of.cup.Picture;
 
 public class CameraClick implements Listener {
@@ -22,25 +20,26 @@ public class CameraClick implements Listener {
 			return;
 		}
 		ItemStack heldItem = e.getItem();
-		if (heldItem == null || heldItem.getItemMeta() == null || heldItem.getItemMeta().getDisplayName() == null) {
+		if (!ItemManager.isCameraItem(heldItem)) {
 			return;
 		}
-		if (heldItem.getItemMeta().getDisplayName().equals(ChatColor.DARK_BLUE + "Camera")) {
-			if (p.getInventory().firstEmpty() == -1) {
-				p.sendMessage("You can not take a picture with a full inventory");
-				return;
+
+		boolean messages = Camera.getInstance().getConfig().getBoolean("settings.messages.enabled", true);
+
+		if (p.getInventory().firstEmpty() == -1) {
+			if (messages) {
+				p.sendMessage(ChatColor.translateAlternateColorCodes('&',
+						Camera.getInstance().getConfig().getString("settings.messages.invfull")));
 			}
-			if (p.getInventory().contains(Material.PAPER)) {
-				Map<Integer, ? extends ItemStack> paperHash = p.getInventory().all(Material.PAPER);
-				for (ItemStack item : paperHash.values()) {
-					item.setAmount(item.getAmount() - 1);
-					break;
-				}
-				Picture.takePicture(p);
-			} else {
-				p.sendMessage("You must have paper in order to take a picture");
-			}
-			
+			return;
+		}
+
+		if (ItemManager.hasFilmItem(p)) {
+			ItemManager.removeOneFilmItem(p);
+			Picture.takePicture(p);
+		} else if (messages) {
+			p.sendMessage(ChatColor.translateAlternateColorCodes('&',
+					Camera.getInstance().getConfig().getString("settings.messages.nopaper")));
 		}
 	}
 }

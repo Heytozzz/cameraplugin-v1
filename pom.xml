@@ -48,6 +48,11 @@
 			<id>papermc</id>
 			<url>https://repo.papermc.io/repository/maven-public/</url>
 		</repository>
+		<!-- JitPack, used to resolve the ItemsAdder API (LoneDev6/API-ItemsAdder is only published there) -->
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
 	</repositories>
 
 	<dependencies>
@@ -58,6 +63,18 @@
 			<groupId>io.papermc.paper</groupId>
 			<artifactId>paper-api</artifactId>
 			<version>1.21.11-R0.1-SNAPSHOT</version>
+			<scope>provided</scope>
+		</dependency>
+		<!-- ItemsAdder API. "provided" scope: it's NOT bundled into our jar, it's only
+		     needed at compile time. If the server doesn't have ItemsAdder installed,
+		     that's fine too, AS LONG AS the plugin never actually calls into these
+		     classes at runtime unless settings.yml explicitly asks for ITEMSADDER items
+		     (see ItemManager.java) — the JVM only loads a class the first time it's
+		     actually referenced. -->
+		<dependency>
+			<groupId>com.github.LoneDev6</groupId>
+			<artifactId>API-ItemsAdder</artifactId>
+			<version>master</version>
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
