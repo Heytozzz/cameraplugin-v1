@@ -5,7 +5,6 @@ import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
-import org.bukkit.entity.Animals;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.map.MapCanvas;
@@ -22,6 +21,9 @@ public class Renderer extends MapRenderer {
 	// A large sentinel distance used for "sky" pixels so relief shading doesn't treat
 	// the sky/terrain boundary as a depth discontinuity.
 	private static final double SKY_DISTANCE = MAX_DISTANCE;
+	// Bounding boxes get expanded by this much for entity hit-testing, so small/thin
+	// animals are less likely to slip between two adjacent rays and go uncaptured.
+	private static final double ENTITY_RAY_SIZE = 0.55;
 
 	@Override
 	public void render(MapView map, MapCanvas canvas, Player player) {
@@ -43,7 +45,11 @@ public class Renderer extends MapRenderer {
 		double pitch = -Math.toRadians(eyes.getPitch());
 		double yaw = Math.toRadians(eyes.getYaw() + 90);
 
-		Predicate<Entity> animalFilter = e -> e instanceof Animals && !e.equals(player);
+		// Filter is kept in lock-step with Utils' color table (Utils.isCapturedAnimal),
+		// instead of checking "instanceof Animals" — that Bukkit interface actually
+		// excludes some things we DO want to capture (squids, dolphins, bats), which
+		// was the "some mobs never show up" bug.
+		Predicate<Entity> animalFilter = e -> !e.equals(player) && Utils.isCapturedAnimal(e.getType());
 
 		byte[][] canvasBytes = new byte[RESOLUTION][RESOLUTION];
 		// distance of the previous column (x-1) at each row y, used for relief/edge shading
@@ -61,13 +67,17 @@ public class Renderer extends MapRenderer {
 						Math.sin(pitch + yrotate),
 						Math.sin(yaw + xrotate) * Math.cos(pitch + yrotate));
 
+				// ignorePassableBlocks = false: this is what makes tall grass, ferns, saplings,
+				// flowers and vines actually register a hit instead of being skipped over as
+				// if they were air. With it set to true (the old bug), the ray passed straight
+				// through every non-solid plant to whatever solid block was behind it.
 				RayTraceResult blockResult = player.getWorld().rayTraceBlocks(
-						eyes, rayVector, MAX_DISTANCE, FluidCollisionMode.NEVER, true);
+						eyes, rayVector, MAX_DISTANCE, FluidCollisionMode.NEVER, false);
 
 				RayTraceResult entityResult = null;
 				if (animalsEnabled) {
 					entityResult = player.getWorld().rayTraceEntities(
-							eyes, rayVector, MAX_DISTANCE, 0.35, animalFilter);
+							eyes, rayVector, MAX_DISTANCE, ENTITY_RAY_SIZE, animalFilter);
 				}
 
 				double blockDist = blockResult != null ? blockResult.getHitPosition().distance(eyesVec) : Double.MAX_VALUE;
@@ -81,14 +91,15 @@ public class Renderer extends MapRenderer {
 					double shade = shadeFor(entityResult.getHitEntity().getLocation().getBlock().getLightLevel(),
 							shadowsEnabled, currentDistance, y, prevColumnDistance, reliefEnabled, reliefStrength);
 					double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
-					colorByte = Utils.colorFromEntity(entityResult.getHitEntity(), shade, fogBlend);
+					colorByte = Utils.colorFromEntity(entityResult.getHitEntity(), entityResult.getHitPosition(), shade, fogBlend);
 				} else if (blockResult != null) {
 					currentDistance = blockDist;
 					byte lightLevel = blockResult.getHitBlock().getRelative(blockResult.getHitBlockFace()).getLightLevel();
 					double shade = shadeFor(lightLevel, shadowsEnabled, currentDistance, y, prevColumnDistance,
 							reliefEnabled, reliefStrength);
 					double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
-					colorByte = Utils.colorFromType(blockResult.getHitBlock(), shade, fogBlend);
+					colorByte = Utils.colorFromType(blockResult.getHitBlock(), blockResult.getHitPosition(),
+							blockResult.getHitBlockFace(), shade, fogBlend);
 				} else {
 					// no block/entity hit: sky
 					canvas.setPixel(x, y, MapPalette.PALE_BLUE);

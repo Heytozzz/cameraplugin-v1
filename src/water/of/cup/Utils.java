@@ -9,12 +9,14 @@ import java.util.Map;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Horse;
 import org.bukkit.entity.Sheep;
 import org.bukkit.entity.Wolf;
 import org.bukkit.map.MapPalette;
+import org.bukkit.util.Vector;
 
 public class Utils {
 
@@ -31,10 +33,10 @@ public class Utils {
 
 	private static void loadBlockColors() {
 		// --- classic terrain / building blocks (kept from the original list) ---
-		blocksMap.put(Material.SHORT_GRASS, new Color(49,101,25));
-		blocksMap.put(Material.TALL_GRASS, new Color(49,101,25));
-		blocksMap.put(Material.LARGE_FERN, new Color(49,101,25));
-		blocksMap.put(Material.FERN, new Color(49,101,25));
+		blocksMap.put(Material.SHORT_GRASS, new Color(52,88,28));
+		blocksMap.put(Material.TALL_GRASS, new Color(52,88,28));
+		blocksMap.put(Material.LARGE_FERN, new Color(48,84,30));
+		blocksMap.put(Material.FERN, new Color(48,84,30));
 		blocksMap.put(Material.COBBLESTONE, new Color(130,130,130));
 		blocksMap.put(Material.COBBLESTONE_STAIRS, new Color(130,130,130));
 		blocksMap.put(Material.COBBLESTONE_SLAB, new Color(130,130,130));
@@ -60,20 +62,28 @@ public class Utils {
 		blocksMap.put(Material.BUBBLE_COLUMN, new Color(67,101,165));
 		blocksMap.put(Material.TALL_SEAGRASS, new Color(67,101,165));
 		blocksMap.put(Material.KELP, new Color(67,101,165));
-		blocksMap.put(Material.GRASS_BLOCK, new Color(82,129,69));
+		blocksMap.put(Material.GRASS_BLOCK, new Color(91,127,61));
 		blocksMap.put(Material.DIRT, new Color(168,120,83));
 		blocksMap.put(Material.SAND, new Color(222,215,172));
 		blocksMap.put(Material.SANDSTONE, new Color(213,207,162));
 		blocksMap.put(Material.RED_SAND, new Color(191,108,49));
 		blocksMap.put(Material.RED_SANDSTONE, new Color(180,100,50));
-		blocksMap.put(Material.ACACIA_LEAVES, new Color(73,181,24));
-		blocksMap.put(Material.BIRCH_LEAVES, new Color(114,149,76));
-		blocksMap.put(Material.DARK_OAK_LEAVES, new Color(72,186,18));
-		blocksMap.put(Material.JUNGLE_LEAVES, new Color(74,185,25));
-		blocksMap.put(Material.OAK_LEAVES, new Color(73,183,24));
-		blocksMap.put(Material.SPRUCE_LEAVES, new Color(55,91,56));
-		blocksMap.put(Material.AZALEA_LEAVES, new Color(102,142,64));
-		blocksMap.put(Material.FLOWERING_AZALEA_LEAVES, new Color(130,150,80));
+		blocksMap.put(Material.ACACIA_LEAVES, new Color(56,102,32));
+		blocksMap.put(Material.BIRCH_LEAVES, new Color(80,100,52));
+		blocksMap.put(Material.DARK_OAK_LEAVES, new Color(34,72,24));
+		blocksMap.put(Material.JUNGLE_LEAVES, new Color(44,96,30));
+		blocksMap.put(Material.OAK_LEAVES, new Color(42,88,28));
+		blocksMap.put(Material.SPRUCE_LEAVES, new Color(38,60,42));
+		blocksMap.put(Material.AZALEA_LEAVES, new Color(58,90,42));
+		blocksMap.put(Material.FLOWERING_AZALEA_LEAVES, new Color(72,88,48));
+		blocksMap.put(Material.VINE, new Color(38,78,26));
+		blocksMap.put(Material.WEEPING_VINES, new Color(112,32,26));
+		blocksMap.put(Material.WEEPING_VINES_PLANT, new Color(112,32,26));
+		blocksMap.put(Material.TWISTING_VINES, new Color(38,120,90));
+		blocksMap.put(Material.TWISTING_VINES_PLANT, new Color(38,120,90));
+		blocksMap.put(Material.CAVE_VINES, new Color(60,110,30));
+		blocksMap.put(Material.CAVE_VINES_PLANT, new Color(60,110,30));
+		blocksMap.put(Material.LILY_PAD, new Color(38,110,42));
 		blocksMap.put(Material.DIRT_PATH, new Color(170,148,89));
 		blocksMap.put(Material.COARSE_DIRT, new Color(104,75,51));
 		blocksMap.put(Material.ANDESITE, new Color(136,136,138));
@@ -169,7 +179,7 @@ public class Utils {
 		blocksMap.put(Material.MANGROVE_PLANKS, new Color(117,53,39));
 		blocksMap.put(Material.MANGROVE_ROOTS, new Color(95,66,53));
 		blocksMap.put(Material.MUDDY_MANGROVE_ROOTS, new Color(95,73,58));
-		blocksMap.put(Material.MANGROVE_LEAVES, new Color(68,110,63));
+		blocksMap.put(Material.MANGROVE_LEAVES, new Color(46,84,48));
 		blocksMap.put(Material.CHERRY_LOG, new Color(54,26,22));
 		blocksMap.put(Material.CHERRY_PLANKS, new Color(234,193,189));
 		blocksMap.put(Material.CHERRY_LEAVES, new Color(234,143,177));
@@ -275,28 +285,48 @@ public class Utils {
 	// Public API used by Renderer
 	// -----------------------------------------------------------------
 
+	/** Whether Renderer's entity raytrace should consider this entity type at all. */
+	public static boolean isCapturedAnimal(EntityType type) {
+		if (type == EntityType.SHEEP || type == EntityType.HORSE || type == EntityType.WOLF
+				|| type == EntityType.CAT || type == EntityType.SKELETON_HORSE || type == EntityType.ZOMBIE_HORSE) {
+			return true;
+		}
+		return animalColorMap.containsKey(type);
+	}
+
 	private static final Color FOG_COLOR = new Color(190, 205, 220);
 
 	/**
 	 * Resolves the pixel color for a block, applying:
+	 *  - a real texture-pixel sample if the resource pack has a texture for this block
+	 *    (mapped from the exact hit position on the hit face, so it's genuinely
+	 *    pixelated detail, not a flat average)
+	 *  - otherwise a deterministic "speckle" pattern over the flat color, so plain
+	 *    colors (grass, leaves, stone...) aren't perfectly uniform either
 	 *  - shade: a brightness multiplier (vanilla light level combined with relief/edge shading)
 	 *  - fogBlend: 0 = no fog (use the shaded color as-is), 1 = fully replaced by the fog color
 	 * then matches the result to the closest vanilla map-palette color.
 	 */
-	public static byte colorFromType(Block block, double shade, double fogBlend) {
-		Color base = resolveBlockColor(block.getType());
-		if (base == null) {
-			base = new Color(140, 140, 140); // neutral, not a harsh flat gray
+	public static byte colorFromType(Block block, Vector hitPos, BlockFace face, double shade, double fogBlend) {
+		double[] uv = computeUV(block, hitPos, face);
+		Color color = sampleTexture(block.getType(), uv[0], uv[1]);
+		if (color == null) {
+			Color flat = resolveBlockColor(block.getType());
+			if (flat == null) {
+				flat = new Color(140, 140, 140); // neutral, not a harsh flat gray
+			}
+			color = applySpeckle(flat, block.getX() + uv[0], block.getY() + uv[1], block.getZ());
 		}
-		Color shaded = applyShade(base, shade);
+		Color shaded = applyShade(color, shade);
 		Color foggy = blend(shaded, FOG_COLOR, 1 - fogBlend);
 		return MapPalette.matchColor(foggy);
 	}
 
 	/** Resolves the pixel color for an entity (used for the "capture animals" feature). */
-	public static byte colorFromEntity(Entity entity, double shade, double fogBlend) {
+	public static byte colorFromEntity(Entity entity, Vector hitPos, double shade, double fogBlend) {
 		Color base = resolveEntityColor(entity);
-		Color shaded = applyShade(base, shade);
+		Color speckled = applySpeckle(base, hitPos.getX() * 4, hitPos.getY() * 4, hitPos.getZ() * 4 + entity.getEntityId());
+		Color shaded = applyShade(speckled, shade);
 		Color foggy = blend(shaded, FOG_COLOR, 1 - fogBlend);
 		return MapPalette.matchColor(foggy);
 	}
@@ -328,7 +358,7 @@ public class Utils {
 
 		// 2) Generic material-family fallback (covers anything future Minecraft
 		//    updates add that we haven't explicitly mapped yet).
-		if (name.contains("LEAVES")) return new Color(65, 125, 55);
+		if (name.contains("LEAVES")) return new Color(44, 86, 30);
 		if (name.endsWith("_LOG") || name.endsWith("_WOOD") || name.endsWith("_STEM") || name.endsWith("_HYPHAE"))
 			return new Color(90, 65, 40);
 		if (name.endsWith("_PLANKS")) return new Color(170, 140, 90);
@@ -383,7 +413,94 @@ public class Utils {
 	}
 
 	// -----------------------------------------------------------------
-	// Resource-pack texture average color (fallback of last resort)
+	// Real texture sampling (maps the exact hit position on the hit face to a
+	// pixel in the resource-pack texture, instead of one flat color per block)
+	// -----------------------------------------------------------------
+
+	/** Returns [u, v] in 0..1 range representing where on the hit face the ray landed. */
+	private static double[] computeUV(Block block, Vector hitPos, BlockFace face) {
+		double lx = hitPos.getX() - block.getX();
+		double ly = hitPos.getY() - block.getY();
+		double lz = hitPos.getZ() - block.getZ();
+		double u, v;
+		switch (face) {
+			case UP:
+			case DOWN:
+				u = lx; v = lz;
+				break;
+			case NORTH:
+			case SOUTH:
+				u = lx; v = 1 - ly;
+				break;
+			case EAST:
+			case WEST:
+				u = lz; v = 1 - ly;
+				break;
+			default:
+				u = lx; v = lz;
+		}
+		return new double[] { clamp01(u), clamp01(v) };
+	}
+
+	private static Color sampleTexture(Material mat, double u, double v) {
+		BufferedImage tex = getTextureImage(mat);
+		if (tex == null) {
+			return null;
+		}
+		int px = Math.min(tex.getWidth() - 1, (int) (u * tex.getWidth()));
+		int py = Math.min(tex.getHeight() - 1, (int) (v * tex.getHeight()));
+		int argb = tex.getRGB(px, py);
+		int alpha = (argb >> 24) & 0xff;
+		if (alpha < 32) {
+			return null; // transparent pixel (e.g. a hole in a leaves texture) — fall back
+		}
+		return new Color((argb >> 16) & 0xff, (argb >> 8) & 0xff, argb & 0xff);
+	}
+
+	private static BufferedImage getTextureImage(Material mat) {
+		ResourcePackManager rpm = Camera.getInstance().getResourcePackManager();
+		if (rpm == null || !rpm.isLoaded()) {
+			return null;
+		}
+		return rpm.getImageHashMap().get(mat);
+	}
+
+	/**
+	 * Deterministic pseudo-random darker "speckle" applied to a fraction of sampled
+	 * points, so flat colors (used whenever we don't have a real texture) get some
+	 * mottling instead of being perfectly uniform. Same coordinates always produce
+	 * the same speckle, so it doesn't look like random noise/static.
+	 */
+	private static Color applySpeckle(Color base, double a, double b, double c) {
+		double h = hashNoise(a, b, c);
+		if (h < 0.30) {
+			double darken = 0.55 + (h / 0.30) * 0.30; // between 0.55x and 0.85x brightness
+			return shade(base, darken);
+		}
+		if (h > 0.93) {
+			return shade(base, 1.12); // occasional lighter fleck too
+		}
+		return base;
+	}
+
+	private static double hashNoise(double a, double b, double c) {
+		long bits = Double.doubleToLongBits(a * 374761393.0 + b * 668265263.0 + c * 2147483647.0 + 12345.0);
+		bits ^= (bits >>> 33);
+		bits *= 0xff51afd7ed558ccdL;
+		bits ^= (bits >>> 33);
+		return (bits & 0xFFFFFFFFL) / (double) 0xFFFFFFFFL;
+	}
+
+	private static double clamp01(double v) {
+		if (v < 0) return 0;
+		if (v > 1) return 1;
+		return v;
+	}
+
+	// -----------------------------------------------------------------
+	// Resource-pack texture average color (fallback used inside resolveBlockColor,
+	// for materials with a texture but where per-pixel sampling isn't in play,
+	// e.g. blocks reached only through the generic-family fallback)
 	// -----------------------------------------------------------------
 
 	private static Color averageTextureColor(Material mat) {
