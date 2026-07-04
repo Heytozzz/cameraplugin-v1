@@ -38,6 +38,12 @@ public class Renderer extends MapRenderer {
 		boolean entitiesEnabled = config.getBoolean("settings.render.animals.enabled", true);
 		double entityRaySize = config.getDouble("settings.render.entity-ray-size", -0.15);
 
+		Utils.PostFX postFx = new Utils.PostFX(
+				config.getDouble("settings.render.postprocess.brightness", 1.0),
+				config.getDouble("settings.render.postprocess.contrast", 1.0),
+				config.getDouble("settings.render.postprocess.saturation", 1.0),
+				config.getDouble("settings.render.postprocess.grain", 0.0));
+
 		Location eyes = player.getEyeLocation();
 		Vector eyesVec = eyes.toVector();
 		double pitch = -Math.toRadians(eyes.getPitch());
@@ -91,7 +97,7 @@ public class Renderer extends MapRenderer {
 					double shade = shadeFor(entityResult.getHitEntity().getLocation().getBlock().getLightLevel(),
 							shadowsEnabled, currentDistance, y, prevColumnDistance, reliefEnabled, reliefStrength);
 					double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
-					colorByte = Utils.colorFromEntity(entityResult.getHitEntity(), entityResult.getHitPosition(), shade, fogBlend);
+					colorByte = Utils.colorFromEntity(entityResult.getHitEntity(), entityResult.getHitPosition(), shade, fogBlend, postFx);
 				} else if (blockResult != null) {
 					currentDistance = blockDist;
 					byte lightLevel = blockResult.getHitBlock().getRelative(blockResult.getHitBlockFace()).getLightLevel();
@@ -99,7 +105,7 @@ public class Renderer extends MapRenderer {
 							reliefEnabled, reliefStrength);
 					double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
 					colorByte = Utils.colorFromType(blockResult.getHitBlock(), blockResult.getHitPosition(),
-							blockResult.getHitBlockFace(), shade, fogBlend);
+							blockResult.getHitBlockFace(), shade, fogBlend, postFx);
 				} else {
 					// no block/entity hit: sky
 					canvas.setPixel(x, y, MapPalette.PALE_BLUE);

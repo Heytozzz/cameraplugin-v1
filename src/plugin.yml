@@ -7,3 +7,6 @@ api-version: '1.21'
 commands:
   takepicture:
     description: take a picture
+  camerareload:
+    description: reload the Cameras config.yml (and colors/recipe) without restarting the server
+    aliases: [camreload, cameras]

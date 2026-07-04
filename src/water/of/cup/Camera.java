@@ -43,6 +43,13 @@ public class Camera extends JavaPlugin {
 		loadConfig();
 		Utils.loadColors();
 
+		if ("HOLD".equalsIgnoreCase(config.getString("settings.camera.trigger-mode", "CLICK"))
+				&& "VANILLA".equalsIgnoreCase(config.getString("settings.camera.item.type", "VANILLA"))
+				&& !"SPYGLASS".equalsIgnoreCase(config.getString("settings.camera.item.vanilla-material", "PLAYER_HEAD"))) {
+			Bukkit.getLogger().warning("[Cameras] settings.camera.trigger-mode is HOLD but vanilla-material isn't "
+					+ "SPYGLASS — there's no release signal for other items, so the camera will fire on click instead.");
+		}
+
 		// Loading the resource pack (possibly downloading it) is slow I/O — running it
 		// synchronously here was what made "Enabling Cameras v0.1" hang the whole server
 		// startup. Doing it async lets the server keep booting; CameraClick checks
@@ -133,6 +140,7 @@ public class Camera extends JavaPlugin {
 		addCameraRecipe();
 
 		getCommand("takePicture").setExecutor(new CameraCommands());
+		getCommand("cameraReload").setExecutor(new CameraCommands());
 		registerListeners(new CameraClick(), new CameraPlace());
 	}
 
@@ -172,6 +180,28 @@ public class Camera extends JavaPlugin {
 		}
 
 		getServer().addRecipe(recipe);
+	}
+
+	/**
+	 * Re-reads config.yml, reloads the color tables, and re-registers the crafting
+	 * recipe — all without a server restart. The resource pack (which can involve a
+	 * slow download) is only refreshed if refreshResourcePack is true, since most
+	 * config tweaks (colors, FOV, post-processing, trigger mode...) don't need it.
+	 */
+	public void reload(boolean refreshResourcePack) {
+		try {
+			getServer().removeRecipe(new NamespacedKey(this, "camera"));
+		} catch (Exception ignored) {
+			// no recipe was registered (e.g. item.type was ITEMSADDER) — fine
+		}
+
+		loadConfig();
+		Utils.loadColors();
+		addCameraRecipe();
+
+		if (refreshResourcePack) {
+			Bukkit.getScheduler().runTaskAsynchronously(this, () -> this.resourcePackManager.initialize());
+		}
 	}
 
 	private void loadConfig() {
@@ -223,6 +253,12 @@ public class Camera extends JavaPlugin {
 		// Positive would expand it instead (useful if small/thin mobs are getting missed).
 		defaultConfig.put("settings.render.entity-ray-size", -0.15);
 
+		// --- final image post-processing (applied as the very last step, like a camera filter) ---
+		defaultConfig.put("settings.render.postprocess.brightness", 1.0); // 1.0 = no change
+		defaultConfig.put("settings.render.postprocess.contrast", 1.0);   // 1.0 = no change, >1 = punchier
+		defaultConfig.put("settings.render.postprocess.saturation", 1.0); // 1.0 = no change, 0 = grayscale
+		defaultConfig.put("settings.render.postprocess.grain", 0.0);      // 0 = none, 1 = heavy film grain
+
 		// --- resource pack used for real per-pixel block textures ---
 		// source: LEGACY (bundled-download 1.16.4 pack, small but outdated)
 		//         GITHUB (downloads just the /textures folder from a minecraft-assets-style
@@ -233,10 +269,22 @@ public class Camera extends JavaPlugin {
 		defaultConfig.put("settings.camera.resourcepack.github-ref", "1.21.4");
 
 		// --- camera item ---
-		// type: VANILLA (default player-head skull, crafted with the recipe below)
+		// type: VANILLA (crafted item, see vanilla-material below)
 		//       ITEMSADDER (an item you already defined in ItemsAdder, referenced by its namespaced id)
 		defaultConfig.put("settings.camera.item.type", "VANILLA");
+		// vanilla-material: PLAYER_HEAD (default reskinned skull) or SPYGLASS.
+		// Only SPYGLASS supports trigger-mode: HOLD below — it's the only one of the two
+		// with a native "hold to use / release to stop" state in vanilla Minecraft, which
+		// is what makes a real release-triggered shutter possible instead of just an
+		// approximation. Bonus: right-click zooms in like a viewfinder while composing the shot.
+		defaultConfig.put("settings.camera.item.vanilla-material", "PLAYER_HEAD");
 		defaultConfig.put("settings.camera.item.itemsadder-id", "yournamespace:camera");
+		// trigger-mode: CLICK (takes the photo immediately on right-click, default)
+		//               HOLD  (takes the photo when the player releases right-click —
+		//                      requires vanilla-material: SPYGLASS to actually detect a release;
+		//                      with any other item it silently behaves like CLICK, since
+		//                      Bukkit has no "release" signal for a generic custom item)
+		defaultConfig.put("settings.camera.trigger-mode", "CLICK");
 		defaultConfig.put("settings.camera.recipe.enabled", true);
 		defaultConfig.put("settings.camera.recipe.shape", new ArrayList<String>() {
 			{

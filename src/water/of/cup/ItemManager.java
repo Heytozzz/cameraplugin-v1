@@ -47,8 +47,21 @@ public class ItemManager {
 		return CAMERA_DISPLAY_NAME.equals(stack.getItemMeta().getDisplayName());
 	}
 
-	/** Builds the default vanilla camera item (a player-head skull with a camera texture). */
+	/** Builds the configured vanilla camera item — either the reskinned player-head
+	 *  skull (default) or a plain spyglass (needed for trigger-mode: HOLD, since it's
+	 *  the only one of the two with a native "hold to use / release" state). */
 	public static ItemStack buildVanillaCameraItem() {
+		String vanillaMaterial = Camera.getInstance().getConfig().getString(
+				"settings.camera.item.vanilla-material", "PLAYER_HEAD");
+
+		if ("SPYGLASS".equalsIgnoreCase(vanillaMaterial)) {
+			ItemStack camera = new ItemStack(Material.SPYGLASS);
+			var meta = camera.getItemMeta();
+			meta.setDisplayName(CAMERA_DISPLAY_NAME);
+			camera.setItemMeta(meta);
+			return camera;
+		}
+
 		ItemStack camera = new ItemStack(Material.PLAYER_HEAD);
 		SkullMeta cameraMeta = (SkullMeta) camera.getItemMeta();
 		cameraMeta.setDisplayName(CAMERA_DISPLAY_NAME);

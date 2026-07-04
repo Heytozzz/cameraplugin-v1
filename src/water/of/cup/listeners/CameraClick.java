@@ -8,11 +8,14 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 
+import io.papermc.paper.event.player.PlayerStopUsingItemEvent;
+
 import water.of.cup.Camera;
 import water.of.cup.ItemManager;
 import water.of.cup.Picture;
 
 public class CameraClick implements Listener {
+
 	@EventHandler
 	public void cameraClicked(PlayerInteractEvent e) {
 		Player p = e.getPlayer();
@@ -24,6 +27,32 @@ public class CameraClick implements Listener {
 			return;
 		}
 
+		if (isHoldMode()) {
+			// Do nothing here — let vanilla start its normal "using item" state (the
+			// spyglass zoom). The actual photo is taken in onStopUsingItem() below, when
+			// the player releases right-click.
+			return;
+		}
+
+		tryTakePicture(p);
+	}
+
+	@EventHandler
+	public void onStopUsingItem(PlayerStopUsingItemEvent e) {
+		if (!isHoldMode()) {
+			return;
+		}
+		if (!ItemManager.isCameraItem(e.getItem())) {
+			return;
+		}
+		tryTakePicture(e.getPlayer());
+	}
+
+	private boolean isHoldMode() {
+		return "HOLD".equalsIgnoreCase(Camera.getInstance().getConfig().getString("settings.camera.trigger-mode", "CLICK"));
+	}
+
+	private void tryTakePicture(Player p) {
 		boolean messages = Camera.getInstance().getConfig().getBoolean("settings.messages.enabled", true);
 
 		if (!Camera.getInstance().getResourcePackManager().isLoaded()) {

@@ -374,7 +374,7 @@ public class Utils {
 	 *  - fogBlend: 0 = no fog (use the shaded color as-is), 1 = fully replaced by the fog color
 	 * then matches the result to the closest vanilla map-palette color.
 	 */
-	public static byte colorFromType(Block block, Vector hitPos, BlockFace face, double shade, double fogBlend) {
+	public static byte colorFromType(Block block, Vector hitPos, BlockFace face, double shade, double fogBlend, PostFX fx) {
 		double[] uv = computeUV(block, hitPos, face);
 		BufferedImage tex = SKIP_TEXTURE_SAMPLE.contains(block.getType()) ? null : getTextureImage(block.getType());
 		Color color;
@@ -403,16 +403,76 @@ public class Utils {
 		}
 		Color shaded = applyShade(color, shade);
 		Color foggy = blend(shaded, FOG_COLOR, 1 - fogBlend);
-		return MapPalette.matchColor(foggy);
+		Color finalColor = applyPostFx(foggy, fx, hitPos.getX(), hitPos.getZ());
+		return MapPalette.matchColor(finalColor);
 	}
 
 	/** Resolves the pixel color for an entity (used for the "capture animals" feature). */
-	public static byte colorFromEntity(Entity entity, Vector hitPos, double shade, double fogBlend) {
+	public static byte colorFromEntity(Entity entity, Vector hitPos, double shade, double fogBlend, PostFX fx) {
 		Color base = resolveEntityColor(entity);
 		Color speckled = applySpeckle(base, hitPos.getX() * 4, hitPos.getY() * 4, hitPos.getZ() * 4 + entity.getEntityId());
 		Color shaded = applyShade(speckled, shade);
 		Color foggy = blend(shaded, FOG_COLOR, 1 - fogBlend);
-		return MapPalette.matchColor(foggy);
+		Color finalColor = applyPostFx(foggy, fx, hitPos.getX(), hitPos.getZ());
+		return MapPalette.matchColor(finalColor);
+	}
+
+	/** Final-image adjustments applied uniformly to every pixel, like a camera filter. */
+	public static class PostFX {
+		public final double brightness;
+		public final double contrast;
+		public final double saturation;
+		public final double grain;
+
+		public PostFX(double brightness, double contrast, double saturation, double grain) {
+			this.brightness = brightness;
+			this.contrast = contrast;
+			this.saturation = saturation;
+			this.grain = grain;
+		}
+	}
+
+	private static Color applyPostFx(Color c, PostFX fx, double seedA, double seedB) {
+		float r = c.getRed();
+		float g = c.getGreen();
+		float b = c.getBlue();
+
+		r *= fx.brightness;
+		g *= fx.brightness;
+		b *= fx.brightness;
+
+		r = (float) ((r - 128) * fx.contrast + 128);
+		g = (float) ((g - 128) * fx.contrast + 128);
+		b = (float) ((b - 128) * fx.contrast + 128);
+
+		r = clampF(r);
+		g = clampF(g);
+		b = clampF(b);
+
+		if (fx.saturation != 1.0) {
+			float[] hsb = Color.RGBtoHSB((int) r, (int) g, (int) b, null);
+			float newSat = (float) Math.max(0, Math.min(1, hsb[1] * fx.saturation));
+			int rgb = Color.HSBtoRGB(hsb[0], newSat, hsb[2]);
+			r = (rgb >> 16) & 0xff;
+			g = (rgb >> 8) & 0xff;
+			b = rgb & 0xff;
+		}
+
+		if (fx.grain > 0) {
+			double n = (hashNoise(seedA * 17.0, seedB * 29.0, 8.0) - 0.5) * 2; // -1..1
+			double offset = n * fx.grain * 45;
+			r = clampF((float) (r + offset));
+			g = clampF((float) (g + offset));
+			b = clampF((float) (b + offset));
+		}
+
+		return new Color((int) r, (int) g, (int) b);
+	}
+
+	private static float clampF(float v) {
+		if (v < 0) return 0;
+		if (v > 255) return 255;
+		return v;
 	}
 
 	// -----------------------------------------------------------------
