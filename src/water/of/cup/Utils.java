@@ -58,10 +58,11 @@ public class Utils {
 		blocksMap.put(Material.EMERALD_BLOCK, new Color(71,213,105));
 		blocksMap.put(Material.LAPIS_BLOCK, new Color(42,80,139));
 		blocksMap.put(Material.WATER, new Color(67,101,165));
-		blocksMap.put(Material.SEAGRASS, new Color(67,101,165));
-		blocksMap.put(Material.BUBBLE_COLUMN, new Color(67,101,165));
-		blocksMap.put(Material.TALL_SEAGRASS, new Color(67,101,165));
-		blocksMap.put(Material.KELP, new Color(67,101,165));
+		blocksMap.put(Material.SEAGRASS, new Color(42,112,48));
+		blocksMap.put(Material.BUBBLE_COLUMN, new Color(80,115,175));
+		blocksMap.put(Material.TALL_SEAGRASS, new Color(42,112,48));
+		blocksMap.put(Material.KELP, new Color(58,108,42));
+		blocksMap.put(Material.KELP_PLANT, new Color(58,108,42));
 		blocksMap.put(Material.GRASS_BLOCK, new Color(91,127,61));
 		blocksMap.put(Material.DIRT, new Color(168,120,83));
 		blocksMap.put(Material.SAND, new Color(222,215,172));
@@ -279,19 +280,63 @@ public class Utils {
 		animalColorMap.put(EntityType.STRIDER, new Color(140,60,55));
 		animalColorMap.put(EntityType.BAT, new Color(60,55,60));
 		animalColorMap.put(EntityType.CAT, new Color(200,170,140));
+
+		// --- hostiles ---
+		animalColorMap.put(EntityType.ZOMBIE, new Color(58,120,72));
+		animalColorMap.put(EntityType.HUSK, new Color(150,130,80));
+		animalColorMap.put(EntityType.DROWNED, new Color(70,120,110));
+		animalColorMap.put(EntityType.ZOMBIE_VILLAGER, new Color(90,120,80));
+		animalColorMap.put(EntityType.SKELETON, new Color(196,196,184));
+		animalColorMap.put(EntityType.STRAY, new Color(180,200,200));
+		animalColorMap.put(EntityType.WITHER_SKELETON, new Color(45,40,40));
+		animalColorMap.put(EntityType.CREEPER, new Color(68,160,68));
+		animalColorMap.put(EntityType.SPIDER, new Color(35,28,22));
+		animalColorMap.put(EntityType.CAVE_SPIDER, new Color(30,80,75));
+		animalColorMap.put(EntityType.ENDERMAN, new Color(25,18,28));
+		animalColorMap.put(EntityType.ENDERMITE, new Color(40,30,50));
+		animalColorMap.put(EntityType.SILVERFISH, new Color(120,120,120));
+		animalColorMap.put(EntityType.WITCH, new Color(70,90,55));
+		animalColorMap.put(EntityType.PILLAGER, new Color(140,130,110));
+		animalColorMap.put(EntityType.VINDICATOR, new Color(120,130,130));
+		animalColorMap.put(EntityType.EVOKER, new Color(150,140,120));
+		animalColorMap.put(EntityType.RAVAGER, new Color(110,90,80));
+		animalColorMap.put(EntityType.ILLUSIONER, new Color(140,130,110));
+		animalColorMap.put(EntityType.PIGLIN, new Color(210,150,120));
+		animalColorMap.put(EntityType.PIGLIN_BRUTE, new Color(180,110,90));
+		animalColorMap.put(EntityType.ZOMBIFIED_PIGLIN, new Color(205,140,110));
+		animalColorMap.put(EntityType.HOGLIN, new Color(150,100,95));
+		animalColorMap.put(EntityType.ZOGLIN, new Color(160,150,145));
+		animalColorMap.put(EntityType.GHAST, new Color(230,230,230));
+		animalColorMap.put(EntityType.BLAZE, new Color(230,150,40));
+		animalColorMap.put(EntityType.MAGMA_CUBE, new Color(200,90,40));
+		animalColorMap.put(EntityType.SLIME, new Color(120,180,110));
+		animalColorMap.put(EntityType.SHULKER, new Color(150,110,140));
+		animalColorMap.put(EntityType.PHANTOM, new Color(60,70,90));
+		animalColorMap.put(EntityType.GUARDIAN, new Color(100,150,140));
+		animalColorMap.put(EntityType.ELDER_GUARDIAN, new Color(110,150,150));
+		animalColorMap.put(EntityType.WITHER, new Color(30,25,25));
+		animalColorMap.put(EntityType.ENDER_DRAGON, new Color(40,30,50));
+
+		// --- villagers / golems / players ---
+		animalColorMap.put(EntityType.VILLAGER, new Color(170,140,110));
+		animalColorMap.put(EntityType.WANDERING_TRADER, new Color(110,130,150));
+		animalColorMap.put(EntityType.IRON_GOLEM, new Color(170,170,160));
+		animalColorMap.put(EntityType.SNOW_GOLEM, new Color(230,235,235));
+		animalColorMap.put(EntityType.ALLAY, new Color(120,170,220));
+		animalColorMap.put(EntityType.PLAYER, new Color(210,175,150));
 	}
 
 	// -----------------------------------------------------------------
 	// Public API used by Renderer
 	// -----------------------------------------------------------------
 
-	/** Whether Renderer's entity raytrace should consider this entity type at all. */
-	public static boolean isCapturedAnimal(EntityType type) {
-		if (type == EntityType.SHEEP || type == EntityType.HORSE || type == EntityType.WOLF
-				|| type == EntityType.CAT || type == EntityType.SKELETON_HORSE || type == EntityType.ZOMBIE_HORSE) {
-			return true;
-		}
-		return animalColorMap.containsKey(type);
+	/** Whether Renderer's entity raytrace should consider this entity type at all.
+	 *  We now capture every entity by default; this only excludes a handful of
+	 *  non-visual/marker entity types that shouldn't show up in a photo. */
+	public static boolean isCapturableEntity(EntityType type) {
+		return type != EntityType.ARMOR_STAND && type != EntityType.ITEM
+				&& type != EntityType.EXPERIENCE_ORB && type != EntityType.FALLING_BLOCK
+				&& type != EntityType.AREA_EFFECT_CLOUD && type != EntityType.LIGHTNING_BOLT;
 	}
 
 	private static final Color FOG_COLOR = new Color(190, 205, 220);
@@ -309,8 +354,25 @@ public class Utils {
 	 */
 	public static byte colorFromType(Block block, Vector hitPos, BlockFace face, double shade, double fogBlend) {
 		double[] uv = computeUV(block, hitPos, face);
-		Color color = sampleTexture(block.getType(), uv[0], uv[1]);
-		if (color == null) {
+		BufferedImage tex = getTextureImage(block.getType());
+		Color color;
+		if (tex != null) {
+			Color sampled = sampleTexturePixel(tex, uv[0], uv[1]);
+			if (sampled != null) {
+				color = sampled;
+			} else {
+				// The texture exists, but this exact pixel was rejected (transparent, or a
+				// near-white/background artifact some older texture packs bake in where the
+				// real graphic should be see-through, e.g. leaves). Rather than show that as
+				// a bright/white speck, fill it with a strongly darkened version of the
+				// block's own known color — reads as "shadow gap inside the foliage" instead.
+				Color flat = resolveBlockColor(block.getType());
+				if (flat == null) {
+					flat = new Color(140, 140, 140);
+				}
+				color = shade(flat, 0.5);
+			}
+		} else {
 			Color flat = resolveBlockColor(block.getType());
 			if (flat == null) {
 				flat = new Color(140, 140, 140); // neutral, not a harsh flat gray
@@ -442,19 +504,27 @@ public class Utils {
 		return new double[] { clamp01(u), clamp01(v) };
 	}
 
-	private static Color sampleTexture(Material mat, double u, double v) {
-		BufferedImage tex = getTextureImage(mat);
-		if (tex == null) {
-			return null;
-		}
+	/** Samples one pixel from an already-loaded texture. Returns null if that pixel
+	 *  looks like it should actually be see-through (real alpha transparency, or —
+	 *  since some older/legacy texture packs bake "holes" as opaque near-white
+	 *  instead of real alpha — a near-white, low-saturation pixel too). */
+	private static Color sampleTexturePixel(BufferedImage tex, double u, double v) {
 		int px = Math.min(tex.getWidth() - 1, (int) (u * tex.getWidth()));
 		int py = Math.min(tex.getHeight() - 1, (int) (v * tex.getHeight()));
 		int argb = tex.getRGB(px, py);
 		int alpha = (argb >> 24) & 0xff;
 		if (alpha < 32) {
-			return null; // transparent pixel (e.g. a hole in a leaves texture) — fall back
+			return null; // real transparency (e.g. a hole in a leaves texture)
 		}
-		return new Color((argb >> 16) & 0xff, (argb >> 8) & 0xff, argb & 0xff);
+		int r = (argb >> 16) & 0xff;
+		int g = (argb >> 8) & 0xff;
+		int b = argb & 0xff;
+		int max = Math.max(r, Math.max(g, b));
+		int min = Math.min(r, Math.min(g, b));
+		if (max > 235 && (max - min) < 25) {
+			return null; // near-white/flat pixel — almost always a baked-in "hole", not real detail
+		}
+		return new Color(r, g, b);
 	}
 
 	private static BufferedImage getTextureImage(Material mat) {

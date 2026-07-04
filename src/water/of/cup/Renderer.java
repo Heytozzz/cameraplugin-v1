@@ -21,16 +21,12 @@ public class Renderer extends MapRenderer {
 	// A large sentinel distance used for "sky" pixels so relief shading doesn't treat
 	// the sky/terrain boundary as a depth discontinuity.
 	private static final double SKY_DISTANCE = MAX_DISTANCE;
-	// Bounding boxes get expanded by this much for entity hit-testing, so small/thin
-	// animals are less likely to slip between two adjacent rays and go uncaptured.
-	private static final double ENTITY_RAY_SIZE = 0.55;
 
 	@Override
 	public void render(MapView map, MapCanvas canvas, Player player) {
 		if (map.isLocked()) {
 			return;
 		}
-		Bukkit.getLogger().info("Rendering picture...");
 
 		var config = Camera.getInstance().getConfig();
 		boolean shadowsEnabled = config.getBoolean("settings.render.shadows", true);
@@ -38,18 +34,19 @@ public class Renderer extends MapRenderer {
 		double reliefStrength = config.getDouble("settings.render.relief.strength", 0.18);
 		boolean fogEnabled = config.getBoolean("settings.render.fog.enabled", true);
 		double fogDistance = config.getDouble("settings.render.fog.distance", 180);
-		boolean animalsEnabled = config.getBoolean("settings.render.animals.enabled", true);
+		boolean entitiesEnabled = config.getBoolean("settings.render.animals.enabled", true);
+		double entityRaySize = config.getDouble("settings.render.entity-ray-size", -0.15);
 
 		Location eyes = player.getEyeLocation();
 		Vector eyesVec = eyes.toVector();
 		double pitch = -Math.toRadians(eyes.getPitch());
 		double yaw = Math.toRadians(eyes.getYaw() + 90);
 
-		// Filter is kept in lock-step with Utils' color table (Utils.isCapturedAnimal),
-		// instead of checking "instanceof Animals" — that Bukkit interface actually
-		// excludes some things we DO want to capture (squids, dolphins, bats), which
-		// was the "some mobs never show up" bug.
-		Predicate<Entity> animalFilter = e -> !e.equals(player) && Utils.isCapturedAnimal(e.getType());
+		// Captures every entity except the photographer — the old "instanceof Animals"
+		// check silently excluded squids, dolphins and bats, which was the "some mobs
+		// never show up" bug. Utils.isCapturableEntity only excludes non-visual/marker
+		// entities (dropped items, XP orbs, etc.) that wouldn't look like anything anyway.
+		Predicate<Entity> entityFilter = e -> !e.equals(player) && Utils.isCapturableEntity(e.getType());
 
 		byte[][] canvasBytes = new byte[RESOLUTION][RESOLUTION];
 		// distance of the previous column (x-1) at each row y, used for relief/edge shading
@@ -67,17 +64,19 @@ public class Renderer extends MapRenderer {
 						Math.sin(pitch + yrotate),
 						Math.sin(yaw + xrotate) * Math.cos(pitch + yrotate));
 
+				// FluidCollisionMode.ALWAYS: water (and lava) now register as their own hit
+				// instead of being skipped through to whatever's underneath — that "never"
+				// mode was why open water rendered as invisible/transparent before.
 				// ignorePassableBlocks = false: this is what makes tall grass, ferns, saplings,
 				// flowers and vines actually register a hit instead of being skipped over as
-				// if they were air. With it set to true (the old bug), the ray passed straight
-				// through every non-solid plant to whatever solid block was behind it.
+				// if they were air.
 				RayTraceResult blockResult = player.getWorld().rayTraceBlocks(
-						eyes, rayVector, MAX_DISTANCE, FluidCollisionMode.NEVER, false);
+						eyes, rayVector, MAX_DISTANCE, FluidCollisionMode.ALWAYS, false);
 
 				RayTraceResult entityResult = null;
-				if (animalsEnabled) {
+				if (entitiesEnabled) {
 					entityResult = player.getWorld().rayTraceEntities(
-							eyes, rayVector, MAX_DISTANCE, ENTITY_RAY_SIZE, animalFilter);
+							eyes, rayVector, MAX_DISTANCE, entityRaySize, entityFilter);
 				}
 
 				double blockDist = blockResult != null ? blockResult.getHitPosition().distance(eyesVec) : Double.MAX_VALUE;

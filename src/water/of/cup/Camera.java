@@ -43,12 +43,12 @@ public class Camera extends JavaPlugin {
 		loadConfig();
 		Utils.loadColors();
 
-		this.resourcePackManager.initialize();
-
-		// Resource pack manager test
-		File grassFile = this.resourcePackManager.getTextureByMaterial(Material.SHORT_GRASS);
-		if(grassFile != null)
-			Bukkit.getLogger().info("Loaded grass texture " + grassFile.getName());
+		// Loading the resource pack (possibly downloading it) is slow I/O — running it
+		// synchronously here was what made "Enabling Cameras v0.1" hang the whole server
+		// startup. Doing it async lets the server keep booting; CameraClick checks
+		// resourcePackManager.isLoaded() and politely asks players to wait if they try
+		// to use a camera before it's done.
+		Bukkit.getScheduler().runTaskAsynchronously(this, () -> this.resourcePackManager.initialize());
 
 		File folder = new File(getDataFolder(), "maps");
 		File[] listOfFiles = folder.listFiles();
@@ -62,7 +62,6 @@ public class Camera extends JavaPlugin {
 				try {
 					BufferedReader br = new BufferedReader(new FileReader(file));
 					String encodedData = br.readLine();
-					Bukkit.getLogger().info("Reading MapID: " + mapId);
 
 					MapView mapView = Bukkit.getMap(Integer.valueOf(mapId));
 
@@ -75,8 +74,6 @@ public class Camera extends JavaPlugin {
 						public void render(MapView mapViewNew, MapCanvas mapCanvas, Player player) {
 							if(!mapIDsNotToRender.contains(mapId)) {
 								mapIDsNotToRender.add(mapId);
-
-								Bukkit.getLogger().info("Starting render... " + mapId);
 //
 //								for (int x = 0; x < 128; x++) {
 //									for (int y = 0; y < 128; y++) {
@@ -121,7 +118,8 @@ public class Camera extends JavaPlugin {
 
 
 								}
-								Bukkit.getLogger().info("Ending render... " + mapId);
+
+
 							}
 						}
 					});
@@ -213,7 +211,21 @@ public class Camera extends JavaPlugin {
 		defaultConfig.put("settings.render.fog.enabled", true);
 		// blocks of distance at which fog starts to noticeably darken/desaturate colors
 		defaultConfig.put("settings.render.fog.distance", 180);
+		// captures ALL entities (mobs, players, etc.), not just animals, despite the key name
 		defaultConfig.put("settings.render.animals.enabled", true);
+		// negative = shrink each entity's hitbox before testing rays against it, so a mob
+		// standing right in front of the camera doesn't swallow the whole picture.
+		// Positive would expand it instead (useful if small/thin mobs are getting missed).
+		defaultConfig.put("settings.render.entity-ray-size", -0.15);
+
+		// --- resource pack used for real per-pixel block textures ---
+		// source: LEGACY (bundled-download 1.16.4 pack, small but outdated)
+		//         GITHUB (downloads just the /textures folder from a minecraft-assets-style
+		//                 GitHub repo at the given ref — much more current, but a bigger
+		//                 one-time download)
+		defaultConfig.put("settings.camera.resourcepack.source", "LEGACY");
+		defaultConfig.put("settings.camera.resourcepack.github-repo", "InventivetalentDev/minecraft-assets");
+		defaultConfig.put("settings.camera.resourcepack.github-ref", "1.21.4");
 
 		// --- camera item ---
 		// type: VANILLA (default player-head skull, crafted with the recipe below)

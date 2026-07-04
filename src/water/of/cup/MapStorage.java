@@ -13,8 +13,6 @@ public class MapStorage {
 //        String serializedData = serializeMapData(data);
         String serializedData = serializeMapDataSimple(data);
 
-        Bukkit.getLogger().info("Serialized Data: " + serializedData);
-
         File file = new File(Camera.getInstance().getDataFolder(), "maps/map_" + id + ".txt");
         if(!file.exists()){
             try {

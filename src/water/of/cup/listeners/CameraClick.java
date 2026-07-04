@@ -26,6 +26,14 @@ public class CameraClick implements Listener {
 
 		boolean messages = Camera.getInstance().getConfig().getBoolean("settings.messages.enabled", true);
 
+		if (!Camera.getInstance().getResourcePackManager().isLoaded()) {
+			if (messages) {
+				p.sendMessage(ChatColor.translateAlternateColorCodes('&',
+						Camera.getInstance().getConfig().getString("settings.messages.notready")));
+			}
+			return;
+		}
+
 		if (p.getInventory().firstEmpty() == -1) {
 			if (messages) {
 				p.sendMessage(ChatColor.translateAlternateColorCodes('&',
