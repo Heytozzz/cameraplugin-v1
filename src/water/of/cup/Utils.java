@@ -3,8 +3,10 @@ package water.of.cup;
 import java.awt.image.BufferedImage;
 import java.awt.Color;
 import java.io.File;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
@@ -339,11 +341,31 @@ public class Utils {
 				&& type != EntityType.AREA_EFFECT_CLOUD && type != EntityType.LIGHTNING_BOLT;
 	}
 
+	// Vanilla stores these textures either biome-tinted at runtime (the PNG itself is
+	// an untinted grayscale/white template — sampling it directly gives white/gray,
+	// not green) or as a multi-frame animation strip stacked in one tall PNG (sampling
+	// naively reads random frames instead of the block's actual look). For both cases
+	// real per-pixel sampling does more harm than good, so these always use the
+	// hand-picked flat color + speckle instead, same as materials with no texture at all.
+	private static final Set<Material> SKIP_TEXTURE_SAMPLE = EnumSet.of(
+			Material.SHORT_GRASS, Material.TALL_GRASS, Material.FERN, Material.LARGE_FERN,
+			Material.GRASS_BLOCK, Material.MYCELIUM, Material.PODZOL,
+			Material.OAK_LEAVES, Material.BIRCH_LEAVES, Material.SPRUCE_LEAVES, Material.JUNGLE_LEAVES,
+			Material.ACACIA_LEAVES, Material.DARK_OAK_LEAVES, Material.MANGROVE_LEAVES, Material.CHERRY_LEAVES,
+			Material.AZALEA_LEAVES, Material.FLOWERING_AZALEA_LEAVES,
+			Material.VINE, Material.WEEPING_VINES, Material.WEEPING_VINES_PLANT,
+			Material.TWISTING_VINES, Material.TWISTING_VINES_PLANT, Material.CAVE_VINES, Material.CAVE_VINES_PLANT,
+			Material.LILY_PAD, Material.SUGAR_CANE, Material.KELP, Material.KELP_PLANT,
+			Material.SEAGRASS, Material.TALL_SEAGRASS, Material.GLOW_LICHEN,
+			Material.WATER, Material.LAVA, Material.BUBBLE_COLUMN, Material.FIRE, Material.SOUL_FIRE,
+			Material.REDSTONE_WIRE);
+
 	private static final Color FOG_COLOR = new Color(190, 205, 220);
 
 	/**
 	 * Resolves the pixel color for a block, applying:
 	 *  - a real texture-pixel sample if the resource pack has a texture for this block
+	 *    AND it isn't a biome-tinted/animated material (see SKIP_TEXTURE_SAMPLE)
 	 *    (mapped from the exact hit position on the hit face, so it's genuinely
 	 *    pixelated detail, not a flat average)
 	 *  - otherwise a deterministic "speckle" pattern over the flat color, so plain
@@ -354,7 +376,7 @@ public class Utils {
 	 */
 	public static byte colorFromType(Block block, Vector hitPos, BlockFace face, double shade, double fogBlend) {
 		double[] uv = computeUV(block, hitPos, face);
-		BufferedImage tex = getTextureImage(block.getType());
+		BufferedImage tex = SKIP_TEXTURE_SAMPLE.contains(block.getType()) ? null : getTextureImage(block.getType());
 		Color color;
 		if (tex != null) {
 			Color sampled = sampleTexturePixel(tex, uv[0], uv[1]);

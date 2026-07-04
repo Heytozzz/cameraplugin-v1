@@ -205,6 +205,11 @@ public class Camera extends JavaPlugin {
 
 		// --- rendering behaviour ---
 		defaultConfig.put("settings.render.shadows", true);
+		// field of view in degrees. Vanilla-ish default; higher = wider/more scene
+		// visible per photo, but this uses a simple angular-offset projection (not true
+		// perspective), so very high values (120+) will start to look fisheye-warped
+		// toward the edges rather than a clean wide-angle shot.
+		defaultConfig.put("settings.render.fov", 51.5);
 		defaultConfig.put("settings.render.relief.enabled", true);
 		// how strongly neighbouring-pixel depth differences lighten/darken a pixel
 		defaultConfig.put("settings.render.relief.strength", 0.18);

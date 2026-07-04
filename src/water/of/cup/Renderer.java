@@ -30,6 +30,7 @@ public class Renderer extends MapRenderer {
 
 		var config = Camera.getInstance().getConfig();
 		boolean shadowsEnabled = config.getBoolean("settings.render.shadows", true);
+		double fovRadians = Math.toRadians(config.getDouble("settings.render.fov", 51.5));
 		boolean reliefEnabled = config.getBoolean("settings.render.relief.enabled", true);
 		double reliefStrength = config.getDouble("settings.render.relief.strength", 0.18);
 		boolean fogEnabled = config.getBoolean("settings.render.fog.enabled", true);
@@ -56,8 +57,8 @@ public class Renderer extends MapRenderer {
 		for (int x = 0; x < RESOLUTION; x++) {
 			for (int y = 0; y < RESOLUTION; y++) {
 
-				double yrotate = -((y) * .9 / RESOLUTION - .45);
-				double xrotate = ((x) * .9 / RESOLUTION - .45);
+				double yrotate = -((y) * fovRadians / RESOLUTION - fovRadians / 2);
+				double xrotate = ((x) * fovRadians / RESOLUTION - fovRadians / 2);
 
 				Vector rayVector = new Vector(
 						Math.cos(yaw + xrotate) * Math.cos(pitch + yrotate),
