@@ -17,13 +17,6 @@ import org.bukkit.util.Vector;
 public class Renderer extends MapRenderer {
 
 	private static final int RESOLUTION = 128;
-<<<<<<< HEAD
-=======
-	private static final double MAX_DISTANCE = 512;
-	// A large sentinel distance used for "sky" pixels so relief shading doesn't treat
-	// the sky/terrain boundary as a depth discontinuity.
-	private static final double SKY_DISTANCE = MAX_DISTANCE;
->>>>>>> eb6879734213511d98a7ebbbd17b8b01c84b4fdb
 
 	private final CameraProfile profile;
 
