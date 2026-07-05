@@ -1,6 +1,13 @@
 package water.of.cup;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
@@ -10,6 +17,8 @@ import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 
 public class Picture {
+
+	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
 	public static boolean takePicture(Player p, CameraProfile profile) {
 
@@ -25,12 +34,22 @@ public class Picture {
 		mapView.addRenderer(customRenderer);
 
 		mapMeta.setMapView(mapView);
+		mapMeta.setLore(buildLore(p));
 		itemStack.setItemMeta(mapMeta);
 		p.getInventory().addItem(itemStack);
 
 		playShutterSound(p, profile);
 
 		return true;
+	}
+
+	private static List<String> buildLore(Player p) {
+		Location loc = p.getLocation();
+		List<String> lore = new ArrayList<>();
+		lore.add(ChatColor.GRAY + LocalDateTime.now().format(DATE_FORMAT));
+		lore.add(ChatColor.GRAY + String.format("%.0f, %.0f, %.0f (%s)",
+				loc.getX(), loc.getY(), loc.getZ(), loc.getWorld().getName()));
+		return lore;
 	}
 
 	private static void playShutterSound(Player p, CameraProfile profile) {

@@ -43,8 +43,28 @@ public class CameraProfile {
 		return ChatColor.translateAlternateColorCodes('&', section.getString("display-name", "&9Camera"));
 	}
 
+	/** CLICK: fires immediately on right-click.
+	 *  HOLD: fires when the player releases right-click — only works with a real
+	 *        release signal, i.e. vanilla-material: SPYGLASS.
+	 *  TWO_STEP: first click zooms in (and waits), second click actually takes the
+	 *            photo — works with any item, no release detection needed. */
 	public String getTriggerMode() {
 		return section.getString("trigger-mode", "CLICK");
+	}
+
+	// --- zoom (simulated via a particle-less Slowness effect while aiming) ---
+
+	/** 0 = disabled, 1-7 = Slowness I through VII (Slowness's real max useful level). */
+	public int getZoomLevel() {
+		int level = section.getInt("zoom.level", 0);
+		if (level < 0) return 0;
+		return Math.min(level, 7);
+	}
+
+	/** Safety cap in case a release/complete event is ever missed — the effect always
+	 *  wears off on its own after this many ticks even if our cleanup code doesn't run. */
+	public int getZoomSafetyDurationTicks() {
+		return section.getInt("zoom.safety-duration-ticks", 600);
 	}
 
 	// --- recipe (only used when item.type is VANILLA) ---
@@ -94,6 +114,13 @@ public class CameraProfile {
 
 	public boolean isShadowsEnabled() {
 		return section.getBoolean("render.shadows", true);
+	}
+
+	/** How far (in blocks) rays travel before giving up and treating the pixel as sky.
+	 *  Higher values fill in distant landscape backgrounds better but cost a bit more
+	 *  per photo since more rays travel further before resolving. */
+	public double getMaxDistance() {
+		return section.getDouble("render.max-distance", 256);
 	}
 
 	public double getFov() {

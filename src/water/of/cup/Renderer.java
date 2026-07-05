@@ -17,10 +17,6 @@ import org.bukkit.util.Vector;
 public class Renderer extends MapRenderer {
 
 	private static final int RESOLUTION = 128;
-	private static final double MAX_DISTANCE = 256;
-	// A large sentinel distance used for "sky" pixels so relief shading doesn't treat
-	// the sky/terrain boundary as a depth discontinuity.
-	private static final double SKY_DISTANCE = MAX_DISTANCE;
 
 	private final CameraProfile profile;
 
@@ -42,6 +38,10 @@ public class Renderer extends MapRenderer {
 		double fogDistance = profile.getFogDistance();
 		boolean entitiesEnabled = profile.isEntitiesEnabled();
 		double entityRaySize = profile.getEntityRaySize();
+		double maxDistance = profile.getMaxDistance();
+		// A large sentinel distance used for "sky" pixels so relief shading doesn't treat
+		// the sky/terrain boundary as a depth discontinuity.
+		double skyDistance = maxDistance;
 
 		Utils.PostFX postFx = profile.getPostFx();
 
@@ -79,12 +79,12 @@ public class Renderer extends MapRenderer {
 				// flowers and vines actually register a hit instead of being skipped over as
 				// if they were air.
 				RayTraceResult blockResult = player.getWorld().rayTraceBlocks(
-						eyes, rayVector, MAX_DISTANCE, FluidCollisionMode.ALWAYS, false);
+						eyes, rayVector, maxDistance, FluidCollisionMode.ALWAYS, false);
 
 				RayTraceResult entityResult = null;
 				if (entitiesEnabled) {
 					entityResult = player.getWorld().rayTraceEntities(
-							eyes, rayVector, MAX_DISTANCE, entityRaySize, entityFilter);
+							eyes, rayVector, maxDistance, entityRaySize, entityFilter);
 				}
 
 				double blockDist = blockResult != null ? blockResult.getHitPosition().distance(eyesVec) : Double.MAX_VALUE;
@@ -111,7 +111,7 @@ public class Renderer extends MapRenderer {
 					// no block/entity hit: sky
 					canvas.setPixel(x, y, MapPalette.PALE_BLUE);
 					canvasBytes[x][y] = MapPalette.PALE_BLUE;
-					prevColumnDistance[y] = SKY_DISTANCE;
+					prevColumnDistance[y] = skyDistance;
 					continue;
 				}
 
