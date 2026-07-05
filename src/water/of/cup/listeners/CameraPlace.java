@@ -12,7 +12,7 @@ public class CameraPlace implements Listener {
 	public void cameraPlaced(BlockPlaceEvent e) {
 		//Prevent players from placing Cameras
 		ItemStack item = e.getItemInHand();
-		if (ItemManager.isCameraItem(item)) {
+		if (ItemManager.findCameraProfile(item) != null) {
 			e.setCancelled(true);
 		}
 	}

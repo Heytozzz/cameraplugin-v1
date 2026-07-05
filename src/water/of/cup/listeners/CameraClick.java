@@ -11,6 +11,7 @@ import org.bukkit.inventory.ItemStack;
 import io.papermc.paper.event.player.PlayerStopUsingItemEvent;
 
 import water.of.cup.Camera;
+import water.of.cup.CameraProfile;
 import water.of.cup.ItemManager;
 import water.of.cup.Picture;
 
@@ -23,36 +24,31 @@ public class CameraClick implements Listener {
 			return;
 		}
 		ItemStack heldItem = e.getItem();
-		if (!ItemManager.isCameraItem(heldItem)) {
+		CameraProfile profile = ItemManager.findCameraProfile(heldItem);
+		if (profile == null) {
 			return;
 		}
 
-		if (isHoldMode()) {
+		if ("HOLD".equalsIgnoreCase(profile.getTriggerMode())) {
 			// Do nothing here — let vanilla start its normal "using item" state (the
 			// spyglass zoom). The actual photo is taken in onStopUsingItem() below, when
 			// the player releases right-click.
 			return;
 		}
 
-		tryTakePicture(p);
+		tryTakePicture(p, profile);
 	}
 
 	@EventHandler
 	public void onStopUsingItem(PlayerStopUsingItemEvent e) {
-		if (!isHoldMode()) {
+		CameraProfile profile = ItemManager.findCameraProfile(e.getItem());
+		if (profile == null || !"HOLD".equalsIgnoreCase(profile.getTriggerMode())) {
 			return;
 		}
-		if (!ItemManager.isCameraItem(e.getItem())) {
-			return;
-		}
-		tryTakePicture(e.getPlayer());
+		tryTakePicture(e.getPlayer(), profile);
 	}
 
-	private boolean isHoldMode() {
-		return "HOLD".equalsIgnoreCase(Camera.getInstance().getConfig().getString("settings.camera.trigger-mode", "CLICK"));
-	}
-
-	private void tryTakePicture(Player p) {
+	private void tryTakePicture(Player p, CameraProfile profile) {
 		boolean messages = Camera.getInstance().getConfig().getBoolean("settings.messages.enabled", true);
 
 		if (!Camera.getInstance().getResourcePackManager().isLoaded()) {
@@ -71,9 +67,9 @@ public class CameraClick implements Listener {
 			return;
 		}
 
-		if (ItemManager.hasFilmItem(p)) {
-			ItemManager.removeOneFilmItem(p);
-			Picture.takePicture(p);
+		if (ItemManager.hasFilmItem(profile, p)) {
+			ItemManager.removeOneFilmItem(profile, p);
+			Picture.takePicture(p, profile);
 		} else if (messages) {
 			p.sendMessage(ChatColor.translateAlternateColorCodes('&',
 					Camera.getInstance().getConfig().getString("settings.messages.nopaper")));

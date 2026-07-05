@@ -32,7 +32,13 @@ public class CameraCommands implements CommandExecutor {
 		Player p = (Player) sender;
 
 		if (cmd.getName().equalsIgnoreCase("takepicture") && p.isOp()) {
-			Picture.takePicture(p);
+			water.of.cup.CameraProfile profile = Camera.getInstance().getCameraProfiles().get("default");
+			if (profile == null && !Camera.getInstance().getCameraProfiles().isEmpty()) {
+				profile = Camera.getInstance().getCameraProfiles().values().iterator().next();
+			}
+			if (profile != null) {
+				Picture.takePicture(p, profile);
+			}
 		}
 		return true;
 	}

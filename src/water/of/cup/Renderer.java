@@ -22,27 +22,28 @@ public class Renderer extends MapRenderer {
 	// the sky/terrain boundary as a depth discontinuity.
 	private static final double SKY_DISTANCE = MAX_DISTANCE;
 
+	private final CameraProfile profile;
+
+	public Renderer(CameraProfile profile) {
+		this.profile = profile;
+	}
+
 	@Override
 	public void render(MapView map, MapCanvas canvas, Player player) {
 		if (map.isLocked()) {
 			return;
 		}
 
-		var config = Camera.getInstance().getConfig();
-		boolean shadowsEnabled = config.getBoolean("settings.render.shadows", true);
-		double fovRadians = Math.toRadians(config.getDouble("settings.render.fov", 51.5));
-		boolean reliefEnabled = config.getBoolean("settings.render.relief.enabled", true);
-		double reliefStrength = config.getDouble("settings.render.relief.strength", 0.18);
-		boolean fogEnabled = config.getBoolean("settings.render.fog.enabled", true);
-		double fogDistance = config.getDouble("settings.render.fog.distance", 180);
-		boolean entitiesEnabled = config.getBoolean("settings.render.animals.enabled", true);
-		double entityRaySize = config.getDouble("settings.render.entity-ray-size", -0.15);
+		boolean shadowsEnabled = profile.isShadowsEnabled();
+		double fovRadians = Math.toRadians(profile.getFov());
+		boolean reliefEnabled = profile.isReliefEnabled();
+		double reliefStrength = profile.getReliefStrength();
+		boolean fogEnabled = profile.isFogEnabled();
+		double fogDistance = profile.getFogDistance();
+		boolean entitiesEnabled = profile.isEntitiesEnabled();
+		double entityRaySize = profile.getEntityRaySize();
 
-		Utils.PostFX postFx = new Utils.PostFX(
-				config.getDouble("settings.render.postprocess.brightness", 1.0),
-				config.getDouble("settings.render.postprocess.contrast", 1.0),
-				config.getDouble("settings.render.postprocess.saturation", 1.0),
-				config.getDouble("settings.render.postprocess.grain", 0.0));
+		Utils.PostFX postFx = profile.getPostFx();
 
 		Location eyes = player.getEyeLocation();
 		Vector eyesVec = eyes.toVector();

@@ -3,7 +3,6 @@ package water.of.cup;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -13,58 +12,59 @@ import com.destroystokyo.paper.profile.PlayerProfile;
 import com.destroystokyo.paper.profile.ProfileProperty;
 
 /**
- * Resolves the "camera" item and the "paper"/film item consumed per picture,
- * based on config.yml. Both can independently be:
- *  - VANILLA: a plain Bukkit item (camera = the built-in skull item; paper = any Material)
- *  - ITEMSADDER: a custom item already registered in ItemsAdder, referenced by namespaced id
+ * Resolves camera / "paper" (film) items against a specific CameraProfile. Since
+ * multiple independently-configured cameras can exist at once, lookups return which
+ * profile (if any) an ItemStack matches, rather than a plain boolean.
  *
- * IMPORTANT: the ItemsAdder classes (CustomStack) are only ever touched inside the
- * two isItemsAdder*() branches below, and only when config explicitly says "ITEMSADDER".
- * If a server doesn't have ItemsAdder installed and never configures ITEMSADDER mode,
- * these classes are never loaded by the JVM, so there's no hard dependency at runtime.
+ * IMPORTANT: the ItemsAdder classes (CustomStack) are only ever touched inside
+ * matchesItemsAdderId(), and only when a profile explicitly says "ITEMSADDER". If a
+ * server doesn't have ItemsAdder installed and no profile uses ITEMSADDER mode, these
+ * classes are never loaded by the JVM, so there's no hard dependency at runtime.
  */
 public class ItemManager {
-
-	private static final String CAMERA_DISPLAY_NAME = ChatColor.DARK_BLUE + "Camera";
 
 	// ---------------------------------------------------------------
 	// Camera item
 	// ---------------------------------------------------------------
 
-	public static boolean isCameraItem(ItemStack stack) {
+	/** Returns the CameraProfile this ItemStack matches, or null if it isn't any known camera. */
+	public static CameraProfile findCameraProfile(ItemStack stack) {
 		if (stack == null || stack.getType() == Material.AIR) {
-			return false;
+			return null;
 		}
-		String type = Camera.getInstance().getConfig().getString("settings.camera.item.type", "VANILLA");
-		if ("ITEMSADDER".equalsIgnoreCase(type)) {
-			String id = Camera.getInstance().getConfig().getString("settings.camera.item.itemsadder-id");
-			return matchesItemsAdderId(stack, id);
+		for (CameraProfile profile : Camera.getInstance().getCameraProfiles().values()) {
+			if (matchesCameraProfile(stack, profile)) {
+				return profile;
+			}
 		}
-		// VANILLA: identified by display name, same as the crafted skull item
+		return null;
+	}
+
+	private static boolean matchesCameraProfile(ItemStack stack, CameraProfile profile) {
+		if ("ITEMSADDER".equalsIgnoreCase(profile.getItemType())) {
+			return matchesItemsAdderId(stack, profile.getItemsAdderId());
+		}
 		if (stack.getItemMeta() == null || stack.getItemMeta().getDisplayName() == null) {
 			return false;
 		}
-		return CAMERA_DISPLAY_NAME.equals(stack.getItemMeta().getDisplayName());
+		return profile.getDisplayName().equals(stack.getItemMeta().getDisplayName());
 	}
 
-	/** Builds the configured vanilla camera item — either the reskinned player-head
-	 *  skull (default) or a plain spyglass (needed for trigger-mode: HOLD, since it's
-	 *  the only one of the two with a native "hold to use / release" state). */
-	public static ItemStack buildVanillaCameraItem() {
-		String vanillaMaterial = Camera.getInstance().getConfig().getString(
-				"settings.camera.item.vanilla-material", "PLAYER_HEAD");
-
-		if ("SPYGLASS".equalsIgnoreCase(vanillaMaterial)) {
+	/** Builds the configured vanilla camera item for a profile — either the reskinned
+	 *  player-head skull (default) or a plain spyglass (needed for trigger-mode: HOLD,
+	 *  since it's the only one of the two with a native "hold to use / release" state). */
+	public static ItemStack buildVanillaCameraItem(CameraProfile profile) {
+		if ("SPYGLASS".equalsIgnoreCase(profile.getVanillaMaterial())) {
 			ItemStack camera = new ItemStack(Material.SPYGLASS);
 			var meta = camera.getItemMeta();
-			meta.setDisplayName(CAMERA_DISPLAY_NAME);
+			meta.setDisplayName(profile.getDisplayName());
 			camera.setItemMeta(meta);
 			return camera;
 		}
 
 		ItemStack camera = new ItemStack(Material.PLAYER_HEAD);
 		SkullMeta cameraMeta = (SkullMeta) camera.getItemMeta();
-		cameraMeta.setDisplayName(CAMERA_DISPLAY_NAME);
+		cameraMeta.setDisplayName(profile.getDisplayName());
 
 		PlayerProfile playerProfile = Bukkit.createProfile(UUID.randomUUID());
 		playerProfile.setProperty(new ProfileProperty("textures",
@@ -78,51 +78,46 @@ public class ItemManager {
 	// "Paper"/film item — consumed once per picture
 	// ---------------------------------------------------------------
 
-	/** Whether the player has at least one of the configured film item. */
-	public static boolean hasFilmItem(Player player) {
-		String type = Camera.getInstance().getConfig().getString("settings.paper.item.type", "VANILLA");
-		if ("ITEMSADDER".equalsIgnoreCase(type)) {
-			String id = Camera.getInstance().getConfig().getString("settings.paper.item.itemsadder-id");
+	/** Whether the player has at least one of this profile's configured film item. */
+	public static boolean hasFilmItem(CameraProfile profile, Player player) {
+		if ("ITEMSADDER".equalsIgnoreCase(profile.getPaperType())) {
 			for (ItemStack stack : player.getInventory().getContents()) {
-				if (matchesItemsAdderId(stack, id)) {
+				if (matchesItemsAdderId(stack, profile.getPaperItemsAdderId())) {
 					return true;
 				}
 			}
 			return false;
 		}
-		Material mat = resolveVanillaPaperMaterial();
+		Material mat = resolveVanillaPaperMaterial(profile);
 		return player.getInventory().contains(mat);
 	}
 
-	/** Removes exactly one unit of the configured film item from the player's inventory. */
-	public static void removeOneFilmItem(Player player) {
-		String type = Camera.getInstance().getConfig().getString("settings.paper.item.type", "VANILLA");
-		if ("ITEMSADDER".equalsIgnoreCase(type)) {
-			String id = Camera.getInstance().getConfig().getString("settings.paper.item.itemsadder-id");
+	/** Removes exactly one unit of this profile's configured film item from the player's inventory. */
+	public static void removeOneFilmItem(CameraProfile profile, Player player) {
+		if ("ITEMSADDER".equalsIgnoreCase(profile.getPaperType())) {
 			for (ItemStack stack : player.getInventory().getContents()) {
-				if (matchesItemsAdderId(stack, id)) {
+				if (matchesItemsAdderId(stack, profile.getPaperItemsAdderId())) {
 					stack.setAmount(stack.getAmount() - 1);
 					return;
 				}
 			}
 			return;
 		}
-		Material mat = resolveVanillaPaperMaterial();
+		Material mat = resolveVanillaPaperMaterial(profile);
 		for (ItemStack stack : player.getInventory().all(mat).values()) {
 			stack.setAmount(stack.getAmount() - 1);
 			return;
 		}
 	}
 
-	private static Material resolveVanillaPaperMaterial() {
-		String matName = Camera.getInstance().getConfig().getString("settings.paper.item.material", "PAPER");
-		Material mat = Material.matchMaterial(matName);
+	private static Material resolveVanillaPaperMaterial(CameraProfile profile) {
+		Material mat = Material.matchMaterial(profile.getPaperMaterial());
 		return mat != null ? mat : Material.PAPER;
 	}
 
 	// ---------------------------------------------------------------
 	// ItemsAdder bridge — isolated here so these classes are only ever
-	// loaded when a server actually configures ITEMSADDER mode.
+	// loaded when a profile actually configures ITEMSADDER mode.
 	// ---------------------------------------------------------------
 
 	private static boolean matchesItemsAdderId(ItemStack stack, String namespacedId) {
@@ -135,7 +130,7 @@ public class ItemManager {
 		} catch (Throwable t) {
 			// ItemsAdder not installed, or its data isn't loaded yet — treat as no match
 			// instead of crashing the click/inventory-scan that triggered this check.
-			Bukkit.getLogger().warning("[Cameras] settings.yml asks for an ITEMSADDER item ("
+			Bukkit.getLogger().warning("[Cameras] config asks for an ITEMSADDER item ("
 					+ namespacedId + ") but ItemsAdder doesn't seem to be available: " + t.getMessage());
 			return false;
 		}
