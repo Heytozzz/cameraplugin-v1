@@ -247,9 +247,6 @@ public class Utils {
 		blocksMap.put(Material.TUFF_BRICK_SLAB, new Color(104,104,98));
 		blocksMap.put(Material.TUFF_BRICK_WALL, new Color(104,104,98));
 		blocksMap.put(Material.CALCITE, new Color(224,224,215));
-		blocksMap.put(Material.CALCITE_STAIRS, new Color(224,224,215));
-		blocksMap.put(Material.CALCITE_SLAB, new Color(224,224,215));
-		blocksMap.put(Material.CALCITE_WALL, new Color(224,224,215));
 		blocksMap.put(Material.DRIPSTONE_BLOCK, new Color(151,107,79));
 		blocksMap.put(Material.POINTED_DRIPSTONE, new Color(151,107,79));
 		blocksMap.put(Material.MOSS_BLOCK, new Color(89,102,42));
