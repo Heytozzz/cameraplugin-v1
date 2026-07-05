@@ -16,6 +16,9 @@ import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
+
 public class Picture {
 
 	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -36,6 +39,14 @@ public class Picture {
 		mapMeta.setMapView(mapView);
 		mapMeta.setLore(buildLore(p));
 		itemStack.setItemMeta(mapMeta);
+
+		// Hides the raw "map_id: 123" line the client would otherwise show in the
+		// tooltip — purely cosmetic info nobody taking a photo needs to see.
+		TooltipDisplay tooltipDisplay = TooltipDisplay.tooltipDisplay()
+				.addHiddenComponents(DataComponentTypes.MAP_ID)
+				.build();
+		itemStack.setData(DataComponentTypes.TOOLTIP_DISPLAY, tooltipDisplay);
+
 		p.getInventory().addItem(itemStack);
 
 		playShutterSound(p, profile);

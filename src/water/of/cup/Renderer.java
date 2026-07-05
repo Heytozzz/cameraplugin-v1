@@ -77,9 +77,10 @@ public class Renderer extends MapRenderer {
 				// mode was why open water rendered as invisible/transparent before.
 				// ignorePassableBlocks = false: this is what makes tall grass, ferns, saplings,
 				// flowers and vines actually register a hit instead of being skipped over as
-				// if they were air.
-				RayTraceResult blockResult = player.getWorld().rayTraceBlocks(
-						eyes, rayVector, maxDistance, FluidCollisionMode.ALWAYS, false);
+				// if they were air. raytraceThroughSparsePlants additionally simulates seeing
+				// through the *gaps* of those plants (see its own comment for why that needs
+				// a workaround at all).
+				RayTraceResult blockResult = raytraceThroughSparsePlants(player, eyes, rayVector, maxDistance);
 
 				RayTraceResult entityResult = null;
 				if (entitiesEnabled) {
@@ -124,6 +125,53 @@ public class Renderer extends MapRenderer {
 		Bukkit.getScheduler().runTaskAsynchronously(Camera.getInstance(), () -> MapStorage.store(map.getId(), canvasBytes));
 
 		map.setLocked(true);
+	}
+
+	/**
+	 * Bukkit's raytrace only sees a block's simplified bounding/outline shape, not its
+	 * real visual mesh — so a hit on e.g. SHORT_GRASS looks exactly like a hit on a full
+	 * solid cube, even though visually most of that cube is empty space between the
+	 * "blades" of the cross model. There is no server-side API that knows about that
+	 * finer mesh detail, so this fakes it statistically: each hit on a known "sparse"
+	 * plant material rolls a deterministic (position-based, so a locked photo can't
+	 * flicker) chance of actually registering, based on roughly how much of the block's
+	 * silhouette that plant visually covers. A "miss" nudges the ray origin just past
+	 * this block and tries again, so the ray effectively looks straight through the gap.
+	 */
+	private RayTraceResult raytraceThroughSparsePlants(Player player, Location startEyes, Vector rayVector, double maxDistance) {
+		Location origin = startEyes.clone();
+		double traveled = 0;
+		Vector normalizedRay = rayVector.clone().normalize();
+
+		for (int attempt = 0; attempt < 6; attempt++) {
+			double remaining = maxDistance - traveled;
+			if (remaining <= 0) {
+				return null;
+			}
+			RayTraceResult result = player.getWorld().rayTraceBlocks(
+					origin, rayVector, remaining, FluidCollisionMode.ALWAYS, false);
+			if (result == null || result.getHitBlock() == null) {
+				return result;
+			}
+
+			Double coverage = Utils.getSparsePlantCoverage(result.getHitBlock().getType());
+			if (coverage == null) {
+				return result; // solid enough — this is a real hit
+			}
+
+			Vector hitPos = result.getHitPosition();
+			double roll = Utils.deterministicRandom(hitPos.getX() * 12.9, hitPos.getY() * 78.2, hitPos.getZ() * 37.7);
+			if (roll < coverage) {
+				return result; // rolled a "hit" on the sparse geometry
+			}
+
+			// "missed" — nudge past this block and keep looking
+			double hitDistance = hitPos.distance(origin.toVector());
+			traveled += hitDistance + 0.05;
+			origin = hitPos.toLocation(player.getWorld()).add(normalizedRay.clone().multiply(0.05));
+		}
+
+		return null; // gave up after too many sparse blocks in a row
 	}
 
 	/**

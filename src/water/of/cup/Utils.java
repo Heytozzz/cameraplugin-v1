@@ -253,6 +253,77 @@ public class Utils {
 			putIfPresent(name(dc, "_TERRACOTTA"), blend(c, new Color(152,94,68), 0.55));
 			putIfPresent(name(dc, "_GLAZED_TERRACOTTA"), blend(c, new Color(210,200,190), 0.4));
 		}
+
+		// --- mushroom blocks ---
+		blocksMap.put(Material.RED_MUSHROOM_BLOCK, new Color(150,40,35));
+		blocksMap.put(Material.BROWN_MUSHROOM_BLOCK, new Color(120,90,60));
+		blocksMap.put(Material.MUSHROOM_STEM, new Color(220,215,200));
+		blocksMap.put(Material.RED_MUSHROOM, new Color(180,50,45));
+		blocksMap.put(Material.BROWN_MUSHROOM, new Color(140,105,75));
+
+		// --- functional / utility blocks ---
+		blocksMap.put(Material.SMOKER, new Color(90,90,90));
+		blocksMap.put(Material.BLAST_FURNACE, new Color(110,115,120));
+		blocksMap.put(Material.BARREL, new Color(120,90,55));
+		blocksMap.put(Material.CAMPFIRE, new Color(120,90,60));
+		blocksMap.put(Material.SOUL_CAMPFIRE, new Color(90,110,120));
+		blocksMap.put(Material.COMPOSTER, new Color(140,105,65));
+		blocksMap.put(Material.BEEHIVE, new Color(200,165,100));
+		blocksMap.put(Material.BEE_NEST, new Color(190,150,90));
+		blocksMap.put(Material.LODESTONE, new Color(120,120,125));
+		blocksMap.put(Material.RESPAWN_ANCHOR, new Color(60,40,90));
+		blocksMap.put(Material.LADDER, new Color(150,115,70));
+		blocksMap.put(Material.SCAFFOLDING, new Color(190,160,100));
+		blocksMap.put(Material.BONE_BLOCK, new Color(220,215,195));
+		blocksMap.put(Material.DRIED_KELP_BLOCK, new Color(60,75,45));
+		blocksMap.put(Material.TARGET, new Color(230,225,215));
+		blocksMap.put(Material.CHISELED_BOOKSHELF, new Color(150,115,75));
+		blocksMap.put(Material.DECORATED_POT, new Color(170,100,70));
+		blocksMap.put(Material.SNIFFER_EGG, new Color(190,160,130));
+		blocksMap.put(Material.TURTLE_EGG, new Color(230,225,205));
+		blocksMap.put(Material.JUKEBOX, new Color(110,75,50));
+		blocksMap.put(Material.NOTE_BLOCK, new Color(100,65,40));
+		blocksMap.put(Material.CAULDRON, new Color(60,60,65));
+		blocksMap.put(Material.ANVIL, new Color(55,55,55));
+		blocksMap.put(Material.GRINDSTONE, new Color(150,150,150));
+		blocksMap.put(Material.STONECUTTER, new Color(130,130,130));
+		blocksMap.put(Material.SMITHING_TABLE, new Color(70,70,80));
+		blocksMap.put(Material.FLETCHING_TABLE, new Color(200,190,160));
+		blocksMap.put(Material.CARTOGRAPHY_TABLE, new Color(140,110,80));
+		blocksMap.put(Material.LOOM, new Color(150,120,85));
+		blocksMap.put(Material.LECTERN, new Color(150,115,75));
+		blocksMap.put(Material.BREWING_STAND, new Color(80,80,85));
+		blocksMap.put(Material.SPAWNER, new Color(50,80,80));
+		blocksMap.put(Material.TRIAL_SPAWNER, new Color(70,95,90));
+		blocksMap.put(Material.VAULT, new Color(60,120,110));
+
+		// --- ores / raw blocks ---
+		blocksMap.put(Material.RAW_IRON_BLOCK, new Color(190,145,110));
+		blocksMap.put(Material.RAW_COPPER_BLOCK, new Color(160,105,75));
+		blocksMap.put(Material.RAW_GOLD_BLOCK, new Color(210,175,60));
+		blocksMap.put(Material.ANCIENT_DEBRIS, new Color(90,60,50));
+		blocksMap.put(Material.NETHERITE_BLOCK, new Color(70,65,65));
+
+		// --- ocean / coral / sea life ---
+		blocksMap.put(Material.TUBE_CORAL, new Color(60,90,220));
+		blocksMap.put(Material.TUBE_CORAL_BLOCK, new Color(60,90,220));
+		blocksMap.put(Material.BRAIN_CORAL, new Color(220,110,160));
+		blocksMap.put(Material.BRAIN_CORAL_BLOCK, new Color(220,110,160));
+		blocksMap.put(Material.BUBBLE_CORAL, new Color(180,50,160));
+		blocksMap.put(Material.BUBBLE_CORAL_BLOCK, new Color(180,50,160));
+		blocksMap.put(Material.FIRE_CORAL, new Color(190,40,40));
+		blocksMap.put(Material.FIRE_CORAL_BLOCK, new Color(190,40,40));
+		blocksMap.put(Material.HORN_CORAL, new Color(210,190,50));
+		blocksMap.put(Material.HORN_CORAL_BLOCK, new Color(210,190,50));
+		blocksMap.put(Material.DEAD_TUBE_CORAL, new Color(150,145,140));
+		blocksMap.put(Material.DEAD_BRAIN_CORAL, new Color(150,145,140));
+		blocksMap.put(Material.DEAD_BUBBLE_CORAL, new Color(150,145,140));
+		blocksMap.put(Material.DEAD_FIRE_CORAL, new Color(150,145,140));
+		blocksMap.put(Material.DEAD_HORN_CORAL, new Color(150,145,140));
+		blocksMap.put(Material.SEA_PICKLE, new Color(150,165,60));
+
+		// --- candles (undyed) ---
+		blocksMap.put(Material.CANDLE, new Color(230,220,200));
 	}
 
 	private static void loadAnimalColors() {
@@ -347,6 +418,86 @@ public class Utils {
 	// naively reads random frames instead of the block's actual look). For both cases
 	// real per-pixel sampling does more harm than good, so these always use the
 	// hand-picked flat color + speckle instead, same as materials with no texture at all.
+	// Bukkit's raytrace only knows a block's simplified "outline" bounding shape, not its
+	// real visual mesh — so a cross-shaped plant's raycast hit currently looks like a
+	// solid cube, when visually most of that cube is empty space between the "blades".
+	// This table says what fraction of hits on a given plant should actually count as
+	// hitting it; a "miss" makes Renderer look past it to whatever's behind, and a "hit"
+	// keeps this block's color — over many rays, this reads as gaps/see-through foliage.
+	private static final Map<Material, Double> SPARSE_PLANT_COVERAGE = new HashMap<>();
+	static {
+		SPARSE_PLANT_COVERAGE.put(Material.SHORT_GRASS, 0.45);
+		SPARSE_PLANT_COVERAGE.put(Material.TALL_GRASS, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.FERN, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.LARGE_FERN, 0.55);
+		SPARSE_PLANT_COVERAGE.put(Material.DEAD_BUSH, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.DANDELION, 0.22);
+		SPARSE_PLANT_COVERAGE.put(Material.POPPY, 0.22);
+		SPARSE_PLANT_COVERAGE.put(Material.AZURE_BLUET, 0.2);
+		SPARSE_PLANT_COVERAGE.put(Material.OXEYE_DAISY, 0.22);
+		SPARSE_PLANT_COVERAGE.put(Material.CORNFLOWER, 0.22);
+		SPARSE_PLANT_COVERAGE.put(Material.ALLIUM, 0.22);
+		SPARSE_PLANT_COVERAGE.put(Material.BLUE_ORCHID, 0.22);
+		SPARSE_PLANT_COVERAGE.put(Material.ORANGE_TULIP, 0.2);
+		SPARSE_PLANT_COVERAGE.put(Material.PINK_TULIP, 0.2);
+		SPARSE_PLANT_COVERAGE.put(Material.RED_TULIP, 0.2);
+		SPARSE_PLANT_COVERAGE.put(Material.WHITE_TULIP, 0.2);
+		SPARSE_PLANT_COVERAGE.put(Material.LILY_OF_THE_VALLEY, 0.2);
+		SPARSE_PLANT_COVERAGE.put(Material.SUNFLOWER, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.LILAC, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.ROSE_BUSH, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.PEONY, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.VINE, 0.55);
+		SPARSE_PLANT_COVERAGE.put(Material.WEEPING_VINES, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.WEEPING_VINES_PLANT, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.TWISTING_VINES, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.TWISTING_VINES_PLANT, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.CAVE_VINES, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.CAVE_VINES_PLANT, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.GLOW_LICHEN, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.HANGING_ROOTS, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.SPORE_BLOSSOM, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.BIG_DRIPLEAF, 0.6);
+		SPARSE_PLANT_COVERAGE.put(Material.SMALL_DRIPLEAF, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.SUGAR_CANE, 0.6);
+		SPARSE_PLANT_COVERAGE.put(Material.BAMBOO, 0.6);
+		SPARSE_PLANT_COVERAGE.put(Material.SEAGRASS, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.TALL_SEAGRASS, 0.45);
+		SPARSE_PLANT_COVERAGE.put(Material.KELP, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.KELP_PLANT, 0.4);
+		SPARSE_PLANT_COVERAGE.put(Material.LILY_PAD, 0.9); // a solid disc, barely "sparse"
+		SPARSE_PLANT_COVERAGE.put(Material.WHEAT, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.CARROTS, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.POTATOES, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.BEETROOTS, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.NETHER_WART, 0.5);
+		SPARSE_PLANT_COVERAGE.put(Material.CRIMSON_FUNGUS, 0.3);
+		SPARSE_PLANT_COVERAGE.put(Material.WARPED_FUNGUS, 0.3);
+		SPARSE_PLANT_COVERAGE.put(Material.CRIMSON_ROOTS, 0.3);
+		SPARSE_PLANT_COVERAGE.put(Material.WARPED_ROOTS, 0.3);
+		SPARSE_PLANT_COVERAGE.put(Material.NETHER_SPROUTS, 0.3);
+		SPARSE_PLANT_COVERAGE.put(Material.TORCH, 0.25);
+		SPARSE_PLANT_COVERAGE.put(Material.SOUL_TORCH, 0.25);
+		for (Material mat : Material.values()) {
+			String name = mat.toString();
+			if (name.endsWith("_SAPLING") || name.equals("MANGROVE_PROPAGULE")) {
+				SPARSE_PLANT_COVERAGE.put(mat, 0.3);
+			}
+		}
+	}
+
+	/** Null if this material isn't a "sparse" plant — Renderer treats that as always-solid. */
+	public static Double getSparsePlantCoverage(Material mat) {
+		return SPARSE_PLANT_COVERAGE.get(mat);
+	}
+
+	/** Deterministic pseudo-random value in 0..1 from world-space coordinates, exposed
+	 *  for Renderer's sparse-plant pass-through roll (same coordinates always roll the
+	 *  same way, so a locked/already-taken photo can't change on a later render). */
+	public static double deterministicRandom(double a, double b, double c) {
+		return hashNoise(a, b, c);
+	}
+
 	private static final Set<Material> SKIP_TEXTURE_SAMPLE = EnumSet.of(
 			Material.SHORT_GRASS, Material.TALL_GRASS, Material.FERN, Material.LARGE_FERN,
 			Material.GRASS_BLOCK, Material.MYCELIUM, Material.PODZOL,
