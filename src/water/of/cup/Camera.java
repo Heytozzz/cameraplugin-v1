@@ -285,12 +285,37 @@ public class Camera extends JavaPlugin {
 			createDefaultCameraProfiles();
 		}
 
+		// Keys added in later plugin versions (zoom, max-distance...) won't exist yet
+		// in a config.yml that already had a "cameras" section from before — backfill
+		// them per-profile so they're visible/editable instead of silently defaulting
+		// to "off" forever with no way to discover the option exists.
+		backfillCameraProfileDefaults();
+
 		File mapDir = new File(getDataFolder(), "maps");
 		if (!mapDir.exists()) {
 			mapDir.mkdir();
 		}
 
 		this.saveConfig();
+	}
+
+	private void backfillCameraProfileDefaults() {
+		ConfigurationSection camerasSection = config.getConfigurationSection("cameras");
+		if (camerasSection == null) {
+			return;
+		}
+		for (String id : camerasSection.getKeys(false)) {
+			String base = "cameras." + id + ".";
+			if (!config.contains(base + "zoom.level")) {
+				config.set(base + "zoom.level", 0);
+			}
+			if (!config.contains(base + "zoom.safety-duration-ticks")) {
+				config.set(base + "zoom.safety-duration-ticks", 600);
+			}
+			if (!config.contains(base + "render.max-distance")) {
+				config.set(base + "render.max-distance", 256);
+			}
+		}
 	}
 
 	private void migrateLegacySingleCameraConfig() {
@@ -303,6 +328,8 @@ public class Camera extends JavaPlugin {
 				config.getString("settings.camera.item.itemsadder-id", "yournamespace:camera"));
 		config.set("cameras.default.display-name", "&9Camera");
 		config.set("cameras.default.trigger-mode", config.getString("settings.camera.trigger-mode", "CLICK"));
+		config.set("cameras.default.zoom.level", 0);
+		config.set("cameras.default.zoom.safety-duration-ticks", 600);
 		config.set("cameras.default.recipe.enabled", config.getBoolean("settings.camera.recipe.enabled", true));
 		List<String> shape = config.getStringList("settings.camera.recipe.shape");
 		config.set("cameras.default.recipe.shape", shape.isEmpty() ? Arrays.asList("IGI", "ITI", "IRI") : shape);
@@ -352,6 +379,8 @@ public class Camera extends JavaPlugin {
 		config.set("cameras.default.item.itemsadder-id", "yournamespace:camera");
 		config.set("cameras.default.display-name", "&9Camera");
 		config.set("cameras.default.trigger-mode", "CLICK");
+		config.set("cameras.default.zoom.level", 0);
+		config.set("cameras.default.zoom.safety-duration-ticks", 600);
 		config.set("cameras.default.recipe.enabled", true);
 		config.set("cameras.default.recipe.shape", Arrays.asList("IGI", "ITI", "IRI"));
 		config.set("cameras.default.recipe.ingredients.I", "IRON_INGOT");
@@ -384,6 +413,8 @@ public class Camera extends JavaPlugin {
 		config.set("cameras.polaroid.item.itemsadder-id", "yournamespace:polaroid");
 		config.set("cameras.polaroid.display-name", "&6Polaroid Camera");
 		config.set("cameras.polaroid.trigger-mode", "HOLD");
+		config.set("cameras.polaroid.zoom.level", 4);
+		config.set("cameras.polaroid.zoom.safety-duration-ticks", 600);
 		config.set("cameras.polaroid.recipe.enabled", true);
 		config.set("cameras.polaroid.recipe.shape", Arrays.asList("IGI", "ITI", "ISI"));
 		config.set("cameras.polaroid.recipe.ingredients.I", "IRON_INGOT");
