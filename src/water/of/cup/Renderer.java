@@ -1,11 +1,17 @@
 package water.of.cup;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapPalette;
@@ -14,12 +20,45 @@ import org.bukkit.map.MapView;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
+/**
+ * Renders one photo. Spreads the 128x128 raycasts across multiple ticks instead of
+ * doing all ~16,384 of them in a single render() call — that single-call approach was
+ * a real (if brief) lag spike on busy servers, especially now that each ray can also
+ * retry a few times for sparse plants and test entities separately. Bukkit calls
+ * render() repeatedly for as long as a map is unlocked and being viewed; each call here
+ * just picks up a few more columns where the previous one left off.
+ */
 public class Renderer extends MapRenderer {
 
 	private static final int RESOLUTION = 128;
 
 	private final CameraProfile profile;
 	private final Utils.Filter filter;
+
+	// Progressive-render state — populated once on the first render() call so every
+	// later chunk uses the exact same viewpoint/settings, instead of re-reading the
+	// player's (possibly since-moved) position on every tick.
+	private boolean initialized = false;
+	private boolean finished = false;
+	private int nextColumn = 0;
+	private int columnsPerTick = 16;
+
+	private World world;
+	private Player photographer;
+	private Location eyes;
+	private Vector eyesVec;
+	private double pitch, yaw, fovRadians, maxDistance, skyDistance;
+	private boolean shadowsEnabled, reliefEnabled, fogEnabled, entitiesEnabled;
+	private double reliefStrength, fogDistance, entityRaySize;
+	private Utils.PostFX postFx;
+	private Predicate<Entity> entityFilter;
+
+	private byte[][] canvasBytes;
+	private double[] prevColumnDistance;
+
+	// What actually showed up in this photo, for the collection album feature.
+	private final Set<Material> discoveredBlocks = new HashSet<>();
+	private final Set<EntityType> discoveredEntities = new HashSet<>();
 
 	public Renderer(CameraProfile profile, Utils.Filter filter) {
 		this.profile = profile;
@@ -28,105 +67,127 @@ public class Renderer extends MapRenderer {
 
 	@Override
 	public void render(MapView map, MapCanvas canvas, Player player) {
-		if (map.isLocked()) {
+		if (finished || map.isLocked()) {
 			return;
 		}
 
-		boolean shadowsEnabled = profile.isShadowsEnabled();
-		double fovRadians = Math.toRadians(profile.getFov());
-		boolean reliefEnabled = profile.isReliefEnabled();
-		double reliefStrength = profile.getReliefStrength();
-		boolean fogEnabled = profile.isFogEnabled();
-		double fogDistance = profile.getFogDistance();
-		boolean entitiesEnabled = profile.isEntitiesEnabled();
-		double entityRaySize = profile.getEntityRaySize();
-		double maxDistance = profile.getMaxDistance();
-		// A large sentinel distance used for "sky" pixels so relief shading doesn't treat
-		// the sky/terrain boundary as a depth discontinuity.
-		double skyDistance = maxDistance;
+		if (!initialized) {
+			initialize(player);
+		}
 
-		Utils.PostFX postFx = Utils.combine(profile.getPostFx(), filter);
+		int columnsThisTick = Math.min(columnsPerTick, RESOLUTION - nextColumn);
+		for (int i = 0; i < columnsThisTick; i++) {
+			renderColumn(nextColumn, canvas);
+			nextColumn++;
+		}
 
-		Location eyes = player.getEyeLocation();
-		Vector eyesVec = eyes.toVector();
-		double pitch = -Math.toRadians(eyes.getPitch());
-		double yaw = Math.toRadians(eyes.getYaw() + 90);
+		if (nextColumn >= RESOLUTION) {
+			finished = true;
+			byte[][] finishedBytes = canvasBytes;
+			Bukkit.getScheduler().runTaskAsynchronously(Camera.getInstance(), () -> MapStorage.store(map.getId(), finishedBytes));
+			map.setLocked(true);
+
+			if (photographer != null) {
+				AlbumManager.recordDiscoveries(photographer, discoveredBlocks, discoveredEntities);
+			}
+		}
+	}
+
+	private void initialize(Player player) {
+		this.photographer = player;
+		this.world = player.getWorld();
+		this.eyes = player.getEyeLocation();
+		this.eyesVec = eyes.toVector();
+		this.pitch = -Math.toRadians(eyes.getPitch());
+		this.yaw = Math.toRadians(eyes.getYaw() + 90);
+
+		this.shadowsEnabled = profile.isShadowsEnabled();
+		this.fovRadians = Math.toRadians(profile.getFov());
+		this.reliefEnabled = profile.isReliefEnabled();
+		this.reliefStrength = profile.getReliefStrength();
+		this.fogEnabled = profile.isFogEnabled();
+		this.fogDistance = profile.getFogDistance();
+		this.entitiesEnabled = profile.isEntitiesEnabled();
+		this.entityRaySize = profile.getEntityRaySize();
+		this.maxDistance = profile.getMaxDistance();
+		this.skyDistance = maxDistance;
+		this.columnsPerTick = Math.max(1, profile.getColumnsPerTick());
+
+		this.postFx = Utils.combine(profile.getPostFx(), filter);
 
 		// Captures every entity except the photographer — the old "instanceof Animals"
 		// check silently excluded squids, dolphins and bats, which was the "some mobs
 		// never show up" bug. Utils.isCapturableEntity only excludes non-visual/marker
 		// entities (dropped items, XP orbs, etc.) that wouldn't look like anything anyway.
-		Predicate<Entity> entityFilter = e -> !e.equals(player) && Utils.isCapturableEntity(e.getType());
+		this.entityFilter = e -> !e.equals(player) && Utils.isCapturableEntity(e.getType());
 
-		byte[][] canvasBytes = new byte[RESOLUTION][RESOLUTION];
-		// distance of the previous column (x-1) at each row y, used for relief/edge shading
-		double[] prevColumnDistance = new double[RESOLUTION];
-		java.util.Arrays.fill(prevColumnDistance, -1);
+		this.canvasBytes = new byte[RESOLUTION][RESOLUTION];
+		this.prevColumnDistance = new double[RESOLUTION];
+		Arrays.fill(prevColumnDistance, -1);
 
-		for (int x = 0; x < RESOLUTION; x++) {
-			for (int y = 0; y < RESOLUTION; y++) {
+		this.initialized = true;
+	}
 
-				double yrotate = -((y) * fovRadians / RESOLUTION - fovRadians / 2);
-				double xrotate = ((x) * fovRadians / RESOLUTION - fovRadians / 2);
+	private void renderColumn(int x, MapCanvas canvas) {
+		for (int y = 0; y < RESOLUTION; y++) {
 
-				Vector rayVector = new Vector(
-						Math.cos(yaw + xrotate) * Math.cos(pitch + yrotate),
-						Math.sin(pitch + yrotate),
-						Math.sin(yaw + xrotate) * Math.cos(pitch + yrotate));
+			double yrotate = -((y) * fovRadians / RESOLUTION - fovRadians / 2);
+			double xrotate = ((x) * fovRadians / RESOLUTION - fovRadians / 2);
 
-				// FluidCollisionMode.ALWAYS: water (and lava) now register as their own hit
-				// instead of being skipped through to whatever's underneath — that "never"
-				// mode was why open water rendered as invisible/transparent before.
-				// ignorePassableBlocks = false: this is what makes tall grass, ferns, saplings,
-				// flowers and vines actually register a hit instead of being skipped over as
-				// if they were air. raytraceThroughSparsePlants additionally simulates seeing
-				// through the *gaps* of those plants (see its own comment for why that needs
-				// a workaround at all).
-				RayTraceResult blockResult = raytraceThroughSparsePlants(player, eyes, rayVector, maxDistance);
+			Vector rayVector = new Vector(
+					Math.cos(yaw + xrotate) * Math.cos(pitch + yrotate),
+					Math.sin(pitch + yrotate),
+					Math.sin(yaw + xrotate) * Math.cos(pitch + yrotate));
 
-				RayTraceResult entityResult = null;
-				if (entitiesEnabled) {
-					entityResult = player.getWorld().rayTraceEntities(
-							eyes, rayVector, maxDistance, entityRaySize, entityFilter);
-				}
+			// FluidCollisionMode.ALWAYS: water (and lava) now register as their own hit
+			// instead of being skipped through to whatever's underneath — that "never"
+			// mode was why open water rendered as invisible/transparent before.
+			// ignorePassableBlocks = false: this is what makes tall grass, ferns, saplings,
+			// flowers and vines actually register a hit instead of being skipped over as
+			// if they were air. raytraceThroughSparsePlants additionally simulates seeing
+			// through the *gaps* of those plants (see its own comment for why that needs
+			// a workaround at all).
+			RayTraceResult blockResult = raytraceThroughSparsePlants(world, eyes, rayVector, maxDistance);
 
-				double blockDist = blockResult != null ? blockResult.getHitPosition().distance(eyesVec) : Double.MAX_VALUE;
-				double entityDist = entityResult != null ? entityResult.getHitPosition().distance(eyesVec) : Double.MAX_VALUE;
-
-				byte colorByte;
-				double currentDistance;
-
-				if (entityResult != null && entityDist < blockDist) {
-					currentDistance = entityDist;
-					double shade = shadeFor(entityResult.getHitEntity().getLocation().getBlock().getLightLevel(),
-							shadowsEnabled, currentDistance, y, prevColumnDistance, reliefEnabled, reliefStrength);
-					double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
-					colorByte = Utils.colorFromEntity(entityResult.getHitEntity(), entityResult.getHitPosition(), shade, fogBlend, postFx);
-				} else if (blockResult != null) {
-					currentDistance = blockDist;
-					byte lightLevel = blockResult.getHitBlock().getRelative(blockResult.getHitBlockFace()).getLightLevel();
-					double shade = shadeFor(lightLevel, shadowsEnabled, currentDistance, y, prevColumnDistance,
-							reliefEnabled, reliefStrength);
-					double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
-					colorByte = Utils.colorFromType(blockResult.getHitBlock(), blockResult.getHitPosition(),
-							blockResult.getHitBlockFace(), shade, fogBlend, postFx);
-				} else {
-					// no block/entity hit: sky
-					canvas.setPixel(x, y, MapPalette.PALE_BLUE);
-					canvasBytes[x][y] = MapPalette.PALE_BLUE;
-					prevColumnDistance[y] = skyDistance;
-					continue;
-				}
-
-				canvas.setPixel(x, y, colorByte);
-				canvasBytes[x][y] = colorByte;
-				prevColumnDistance[y] = currentDistance;
+			RayTraceResult entityResult = null;
+			if (entitiesEnabled) {
+				entityResult = world.rayTraceEntities(eyes, rayVector, maxDistance, entityRaySize, entityFilter);
 			}
+
+			double blockDist = blockResult != null ? blockResult.getHitPosition().distance(eyesVec) : Double.MAX_VALUE;
+			double entityDist = entityResult != null ? entityResult.getHitPosition().distance(eyesVec) : Double.MAX_VALUE;
+
+			byte colorByte;
+			double currentDistance;
+
+			if (entityResult != null && entityDist < blockDist) {
+				currentDistance = entityDist;
+				double shade = shadeFor(entityResult.getHitEntity().getLocation().getBlock().getLightLevel(),
+						shadowsEnabled, currentDistance, y, prevColumnDistance, reliefEnabled, reliefStrength);
+				double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
+				colorByte = Utils.colorFromEntity(entityResult.getHitEntity(), entityResult.getHitPosition(), shade, fogBlend, postFx);
+				discoveredEntities.add(entityResult.getHitEntity().getType());
+			} else if (blockResult != null) {
+				currentDistance = blockDist;
+				byte lightLevel = blockResult.getHitBlock().getRelative(blockResult.getHitBlockFace()).getLightLevel();
+				double shade = shadeFor(lightLevel, shadowsEnabled, currentDistance, y, prevColumnDistance,
+						reliefEnabled, reliefStrength);
+				double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
+				colorByte = Utils.colorFromType(blockResult.getHitBlock(), blockResult.getHitPosition(),
+						blockResult.getHitBlockFace(), shade, fogBlend, postFx);
+				discoveredBlocks.add(blockResult.getHitBlock().getType());
+			} else {
+				// no block/entity hit: sky
+				canvas.setPixel(x, y, MapPalette.PALE_BLUE);
+				canvasBytes[x][y] = MapPalette.PALE_BLUE;
+				prevColumnDistance[y] = skyDistance;
+				continue;
+			}
+
+			canvas.setPixel(x, y, colorByte);
+			canvasBytes[x][y] = colorByte;
+			prevColumnDistance[y] = currentDistance;
 		}
-
-		Bukkit.getScheduler().runTaskAsynchronously(Camera.getInstance(), () -> MapStorage.store(map.getId(), canvasBytes));
-
-		map.setLocked(true);
 	}
 
 	/**
@@ -140,7 +201,7 @@ public class Renderer extends MapRenderer {
 	 * silhouette that plant visually covers. A "miss" nudges the ray origin just past
 	 * this block and tries again, so the ray effectively looks straight through the gap.
 	 */
-	private RayTraceResult raytraceThroughSparsePlants(Player player, Location startEyes, Vector rayVector, double maxDistance) {
+	private RayTraceResult raytraceThroughSparsePlants(World world, Location startEyes, Vector rayVector, double maxDistance) {
 		Location origin = startEyes.clone();
 		double traveled = 0;
 		Vector normalizedRay = rayVector.clone().normalize();
@@ -150,8 +211,7 @@ public class Renderer extends MapRenderer {
 			if (remaining <= 0) {
 				return null;
 			}
-			RayTraceResult result = player.getWorld().rayTraceBlocks(
-					origin, rayVector, remaining, FluidCollisionMode.ALWAYS, false);
+			RayTraceResult result = world.rayTraceBlocks(origin, rayVector, remaining, FluidCollisionMode.ALWAYS, false);
 			if (result == null || result.getHitBlock() == null) {
 				return result;
 			}
@@ -170,7 +230,7 @@ public class Renderer extends MapRenderer {
 			// "missed" — nudge past this block and keep looking
 			double hitDistance = hitPos.distance(origin.toVector());
 			traveled += hitDistance + 0.05;
-			origin = hitPos.toLocation(player.getWorld()).add(normalizedRay.clone().multiply(0.05));
+			origin = hitPos.toLocation(world).add(normalizedRay.clone().multiply(0.05));
 		}
 
 		return null; // gave up after too many sparse blocks in a row

@@ -554,6 +554,23 @@ public class Utils {
 		return SPARSE_PLANT_COVERAGE.get(mat);
 	}
 
+	/** Whether a block counts as "a plant" for the collection album — the sparse-plant
+	 *  list already covers most of them (grass, flowers, crops, vines...), plus a few
+	 *  solid plant-ish blocks that aren't sparse (leaves, mushrooms, cactus...). */
+	public static boolean isPlantMaterial(Material mat) {
+		if (SPARSE_PLANT_COVERAGE.containsKey(mat)) {
+			return true;
+		}
+		String name = mat.toString();
+		if (name.endsWith("_LEAVES") || name.contains("MUSHROOM") || name.equals("CACTUS")
+				|| name.contains("MOSS") || name.contains("AZALEA") || name.equals("BAMBOO_BLOCK")
+				|| name.equals("SUGAR_CANE") || name.equals("MELON") || name.equals("PUMPKIN")
+				|| name.equals("SNIFFER_EGG") || name.equals("TURTLE_EGG")) {
+			return true;
+		}
+		return false;
+	}
+
 	/** Deterministic pseudo-random value in 0..1 from world-space coordinates, exposed
 	 *  for Renderer's sparse-plant pass-through roll (same coordinates always roll the
 	 *  same way, so a locked/already-taken photo can't change on a later render). */

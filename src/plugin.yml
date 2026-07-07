@@ -10,3 +10,6 @@ commands:
   camerareload:
     description: reload the Cameras config.yml (and colors/recipe) without restarting the server
     aliases: [camreload, cameras]
+  cameraalbum:
+    description: get an up-to-date copy of your photo collection album book
+    aliases: [album, camalbum]

@@ -5,7 +5,9 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
+import water.of.cup.AlbumManager;
 import water.of.cup.Camera;
 import water.of.cup.Picture;
 
@@ -30,6 +32,17 @@ public class CameraCommands implements CommandExecutor {
 			return true;
 		}
 		Player p = (Player) sender;
+
+		if (cmd.getName().equalsIgnoreCase("cameraalbum")) {
+			ItemStack book = AlbumManager.generateBook(p);
+			if (p.getInventory().firstEmpty() == -1) {
+				p.getWorld().dropItem(p.getLocation(), book);
+			} else {
+				p.getInventory().addItem(book);
+			}
+			p.sendMessage(ChatColor.GREEN + "[Cameras] Here's your up-to-date photo album.");
+			return true;
+		}
 
 		if (cmd.getName().equalsIgnoreCase("takepicture") && p.isOp()) {
 			water.of.cup.CameraProfile profile = Camera.getInstance().getCameraProfiles().get("default");

@@ -177,6 +177,14 @@ public class CameraProfile {
 		return section.getDouble("render.max-distance", 256);
 	}
 
+	/** How many of the 128 image columns get raycast per render() tick. Lower values
+	 *  spread the cost of a photo across more ticks (less lag per tick, photo takes a
+	 *  little longer to finish "developing"); higher values finish faster but cost more
+	 *  per tick. 128 = old single-tick behavior. */
+	public int getColumnsPerTick() {
+		return section.getInt("render.columns-per-tick", 16);
+	}
+
 	public double getFov() {
 		return section.getDouble("render.fov", 51.5);
 	}

@@ -46,6 +46,7 @@ public class Camera extends JavaPlugin {
 
 		loadConfig();
 		Utils.loadColors();
+		AlbumManager.load();
 		loadCameraProfiles();
 
 		for (CameraProfile profile : cameraProfiles.values()) {
@@ -134,6 +135,7 @@ public class Camera extends JavaPlugin {
 
 		getCommand("takePicture").setExecutor(new CameraCommands());
 		getCommand("cameraReload").setExecutor(new CameraCommands());
+		getCommand("cameraAlbum").setExecutor(new CameraCommands());
 		registerListeners(new CameraClick(), new CameraPlace());
 	}
 
@@ -315,6 +317,9 @@ public class Camera extends JavaPlugin {
 			if (!config.contains(base + "render.max-distance")) {
 				config.set(base + "render.max-distance", 256);
 			}
+			if (!config.contains(base + "render.columns-per-tick")) {
+				config.set(base + "render.columns-per-tick", 16);
+			}
 			if (!config.contains(base + "filter")) {
 				config.set(base + "filter", "NONE");
 			}
@@ -353,6 +358,7 @@ public class Camera extends JavaPlugin {
 		config.set("cameras.default.render.shadows", config.getBoolean("settings.render.shadows", true));
 		config.set("cameras.default.render.fov", config.getDouble("settings.render.fov", 51.5));
 		config.set("cameras.default.render.max-distance", config.getDouble("settings.render.max-distance", 256));
+		config.set("cameras.default.render.columns-per-tick", 16);
 		config.set("cameras.default.render.relief.enabled", config.getBoolean("settings.render.relief.enabled", true));
 		config.set("cameras.default.render.relief.strength", config.getDouble("settings.render.relief.strength", 0.18));
 		config.set("cameras.default.render.fog.enabled", config.getBoolean("settings.render.fog.enabled", true));
@@ -401,6 +407,7 @@ public class Camera extends JavaPlugin {
 		config.set("cameras.default.render.shadows", true);
 		config.set("cameras.default.render.fov", 51.5);
 		config.set("cameras.default.render.max-distance", 256);
+		config.set("cameras.default.render.columns-per-tick", 16);
 		config.set("cameras.default.render.relief.enabled", true);
 		config.set("cameras.default.render.relief.strength", 0.18);
 		config.set("cameras.default.render.fog.enabled", true);
@@ -449,6 +456,7 @@ public class Camera extends JavaPlugin {
 		config.set("cameras.polaroid.render.shadows", true);
 		config.set("cameras.polaroid.render.fov", 51.5);
 		config.set("cameras.polaroid.render.max-distance", 400);
+		config.set("cameras.polaroid.render.columns-per-tick", 16);
 		config.set("cameras.polaroid.render.relief.enabled", true);
 		config.set("cameras.polaroid.render.relief.strength", 0.18);
 		config.set("cameras.polaroid.render.fog.enabled", true);
