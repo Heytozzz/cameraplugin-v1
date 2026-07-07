@@ -43,7 +43,7 @@ public class Utils {
 		blocksMap.put(Material.COBBLESTONE_STAIRS, new Color(130,130,130));
 		blocksMap.put(Material.COBBLESTONE_SLAB, new Color(130,130,130));
 		blocksMap.put(Material.FURNACE, new Color(130,130,130));
-		blocksMap.put(Material.STONE, new Color(117,117,117));
+		blocksMap.put(Material.STONE, new Color(100,100,102));
 		blocksMap.put(Material.STONE_SLAB, new Color(117,117,117));
 		blocksMap.put(Material.IRON_ORE, new Color(140,130,120));
 		blocksMap.put(Material.GOLD_ORE, new Color(150,135,90));
@@ -324,6 +324,69 @@ public class Utils {
 
 		// --- candles (undyed) ---
 		blocksMap.put(Material.CANDLE, new Color(230,220,200));
+
+		// --- wood "block of wood" (bark on all sides) + stripped variants, derived from
+		//     the LOG colors already set above, instead of hand-typing every combination ---
+		String[] woodTypes = { "OAK", "SPRUCE", "BIRCH", "JUNGLE", "ACACIA", "DARK_OAK",
+				"MANGROVE", "CHERRY", "CRIMSON", "WARPED" };
+		for (String type : woodTypes) {
+			Material log = Material.matchMaterial(type + "_LOG");
+			Material stem = Material.matchMaterial(type + "_STEM"); // crimson/warped use "_STEM" instead of "_LOG"
+			Color base = log != null ? blocksMap.get(log) : (stem != null ? blocksMap.get(stem) : null);
+			if (base != null) {
+				putIfPresent(type + "_WOOD", base);
+				putIfPresent(type + "_HYPHAE", base); // crimson/warped's "_WOOD" equivalent
+				Color stripped = shade(base, 1.35); // stripped wood shows the lighter inner wood
+				putIfPresent("STRIPPED_" + type + "_LOG", stripped);
+				putIfPresent("STRIPPED_" + type + "_WOOD", stripped);
+				putIfPresent("STRIPPED_" + type + "_STEM", stripped);
+				putIfPresent("STRIPPED_" + type + "_HYPHAE", stripped);
+			}
+		}
+		blocksMap.put(Material.STRIPPED_BAMBOO_BLOCK, shade(new Color(135, 183, 26), 1.2));
+
+		// --- metal doors/trapdoors (the wood-plank fallback above doesn't apply to these) ---
+		blocksMap.put(Material.IRON_DOOR, new Color(210, 210, 212));
+		blocksMap.put(Material.IRON_TRAPDOOR, new Color(200, 200, 202));
+		putIfPresent("COPPER_DOOR", new Color(194, 116, 86));
+		putIfPresent("EXPOSED_COPPER_DOOR", new Color(146, 144, 120));
+		putIfPresent("WEATHERED_COPPER_DOOR", new Color(109, 143, 120));
+		putIfPresent("OXIDIZED_COPPER_DOOR", new Color(82, 162, 132));
+		putIfPresent("COPPER_TRAPDOOR", new Color(194, 116, 86));
+		putIfPresent("EXPOSED_COPPER_TRAPDOOR", new Color(146, 144, 120));
+		putIfPresent("WEATHERED_COPPER_TRAPDOOR", new Color(109, 143, 120));
+		putIfPresent("OXIDIZED_COPPER_TRAPDOOR", new Color(82, 162, 132));
+		putIfPresent("COPPER_GRATE", new Color(180, 110, 82));
+		putIfPresent("EXPOSED_COPPER_GRATE", new Color(140, 138, 116));
+		putIfPresent("WEATHERED_COPPER_GRATE", new Color(105, 138, 116));
+		putIfPresent("OXIDIZED_COPPER_GRATE", new Color(80, 156, 128));
+		putIfPresent("COPPER_BULB", new Color(200, 130, 95));
+		putIfPresent("EXPOSED_COPPER_BULB", new Color(150, 148, 124));
+		putIfPresent("WEATHERED_COPPER_BULB", new Color(112, 146, 122));
+		putIfPresent("OXIDIZED_COPPER_BULB", new Color(86, 165, 135));
+
+		// --- redstone category ---
+		blocksMap.put(Material.REDSTONE_WIRE, new Color(160, 20, 15));
+		blocksMap.put(Material.REDSTONE_TORCH, new Color(200, 30, 20));
+		blocksMap.put(Material.REDSTONE_WALL_TORCH, new Color(200, 30, 20));
+		blocksMap.put(Material.REPEATER, new Color(150, 145, 140));
+		blocksMap.put(Material.COMPARATOR, new Color(155, 150, 145));
+		blocksMap.put(Material.LEVER, new Color(120, 118, 115));
+		blocksMap.put(Material.TRIPWIRE, new Color(180, 180, 175));
+		blocksMap.put(Material.TRIPWIRE_HOOK, new Color(140, 110, 70));
+		blocksMap.put(Material.DAYLIGHT_DETECTOR, new Color(150, 130, 100));
+		blocksMap.put(Material.OBSERVER, new Color(100, 100, 100));
+		blocksMap.put(Material.PISTON, new Color(140, 125, 90));
+		blocksMap.put(Material.STICKY_PISTON, new Color(120, 135, 80));
+		blocksMap.put(Material.PISTON_HEAD, new Color(140, 125, 90));
+		blocksMap.put(Material.MOVING_PISTON, new Color(140, 125, 90));
+		blocksMap.put(Material.DISPENSER, new Color(105, 105, 105));
+		blocksMap.put(Material.DROPPER, new Color(105, 105, 105));
+		blocksMap.put(Material.HOPPER, new Color(75, 75, 78));
+		blocksMap.put(Material.TARGET, new Color(230, 225, 215));
+		blocksMap.put(Material.SCULK_SENSOR, new Color(30, 90, 90));
+		blocksMap.put(Material.CALIBRATED_SCULK_SENSOR, new Color(35, 95, 95));
+		blocksMap.put(Material.CRAFTER, new Color(110, 108, 100));
 	}
 
 	private static void loadAnimalColors() {
@@ -498,18 +561,33 @@ public class Utils {
 		return hashNoise(a, b, c);
 	}
 
-	private static final Set<Material> SKIP_TEXTURE_SAMPLE = EnumSet.of(
-			Material.SHORT_GRASS, Material.TALL_GRASS, Material.FERN, Material.LARGE_FERN,
-			Material.GRASS_BLOCK, Material.MYCELIUM, Material.PODZOL,
-			Material.OAK_LEAVES, Material.BIRCH_LEAVES, Material.SPRUCE_LEAVES, Material.JUNGLE_LEAVES,
-			Material.ACACIA_LEAVES, Material.DARK_OAK_LEAVES, Material.MANGROVE_LEAVES, Material.CHERRY_LEAVES,
-			Material.AZALEA_LEAVES, Material.FLOWERING_AZALEA_LEAVES,
-			Material.VINE, Material.WEEPING_VINES, Material.WEEPING_VINES_PLANT,
-			Material.TWISTING_VINES, Material.TWISTING_VINES_PLANT, Material.CAVE_VINES, Material.CAVE_VINES_PLANT,
-			Material.LILY_PAD, Material.SUGAR_CANE, Material.KELP, Material.KELP_PLANT,
-			Material.SEAGRASS, Material.TALL_SEAGRASS, Material.GLOW_LICHEN,
-			Material.WATER, Material.LAVA, Material.BUBBLE_COLUMN, Material.FIRE, Material.SOUL_FIRE,
-			Material.REDSTONE_WIRE);
+	private static final Set<Material> SKIP_TEXTURE_SAMPLE = buildSkipTextureSampleSet();
+
+	private static Set<Material> buildSkipTextureSampleSet() {
+		Set<Material> set = EnumSet.of(
+				Material.SHORT_GRASS, Material.TALL_GRASS, Material.FERN, Material.LARGE_FERN,
+				Material.GRASS_BLOCK, Material.MYCELIUM, Material.PODZOL,
+				Material.OAK_LEAVES, Material.BIRCH_LEAVES, Material.SPRUCE_LEAVES, Material.JUNGLE_LEAVES,
+				Material.ACACIA_LEAVES, Material.DARK_OAK_LEAVES, Material.MANGROVE_LEAVES, Material.CHERRY_LEAVES,
+				Material.AZALEA_LEAVES, Material.FLOWERING_AZALEA_LEAVES,
+				Material.VINE, Material.WEEPING_VINES, Material.WEEPING_VINES_PLANT,
+				Material.TWISTING_VINES, Material.TWISTING_VINES_PLANT, Material.CAVE_VINES, Material.CAVE_VINES_PLANT,
+				Material.LILY_PAD, Material.SUGAR_CANE, Material.KELP, Material.KELP_PLANT,
+				Material.SEAGRASS, Material.TALL_SEAGRASS, Material.GLOW_LICHEN,
+				Material.WATER, Material.LAVA, Material.BUBBLE_COLUMN, Material.FIRE, Material.SOUL_FIRE,
+				Material.REDSTONE_WIRE, Material.STONE);
+		// Doors/trapdoors are thin panels, not full cubes — our face-based UV mapping
+		// only really makes sense for full-cube blocks, so real texture sampling on
+		// these just produces a distorted/cropped-looking slice of the texture instead
+		// (part of why a door could look "off"/disconnected between its two halves).
+		for (Material mat : Material.values()) {
+			String name = mat.toString();
+			if (name.endsWith("_DOOR") || name.endsWith("_TRAPDOOR")) {
+				set.add(mat);
+			}
+		}
+		return set;
+	}
 
 	private static final Color FOG_COLOR = new Color(190, 205, 220);
 
@@ -550,7 +628,15 @@ public class Utils {
 			if (flat == null) {
 				flat = new Color(140, 140, 140); // neutral, not a harsh flat gray
 			}
-			color = applySpeckle(flat, block.getX() + uv[0], block.getY() + uv[1], block.getZ());
+			String typeName = block.getType().toString();
+			if (typeName.endsWith("_DOOR") || typeName.endsWith("_TRAPDOOR")) {
+				// Keep these perfectly flat — a door's two blocks (upper/lower half)
+				// should read as one continuous surface, not two independently
+				// speckled/noisy textures that make the seam between them obvious.
+				color = flat;
+			} else {
+				color = applySpeckle(flat, block.getX() + uv[0], block.getY() + uv[1], block.getZ());
+			}
 		}
 		Color shaded = applyShade(color, shade);
 		Color foggy = blend(shaded, FOG_COLOR, 1 - fogBlend);
@@ -574,13 +660,77 @@ public class Utils {
 		public final double contrast;
 		public final double saturation;
 		public final double grain;
+		public final boolean sepia;
+		public final Color tintColor;
+		public final double tintStrength;
 
 		public PostFX(double brightness, double contrast, double saturation, double grain) {
+			this(brightness, contrast, saturation, grain, false, null, 0);
+		}
+
+		public PostFX(double brightness, double contrast, double saturation, double grain,
+				boolean sepia, Color tintColor, double tintStrength) {
 			this.brightness = brightness;
 			this.contrast = contrast;
 			this.saturation = saturation;
 			this.grain = grain;
+			this.sepia = sepia;
+			this.tintColor = tintColor;
+			this.tintStrength = tintStrength;
 		}
+	}
+
+	/** Predefined camera filters. Each one's brightness/contrast/saturation/grain
+	 *  MULTIPLY on top of whatever the camera's own postprocess settings already are
+	 *  (so a filter layers on top of manual tuning instead of replacing it) — sepia
+	 *  and tint are filter-only effects with no manual equivalent. */
+	public enum Filter {
+		NONE(1.0, 1.0, 1.0, 0.0, false, null, 0),
+		SEPIA(1.0, 1.05, 1.0, 0.12, true, null, 0),
+		GRAYSCALE(1.0, 1.1, 0.0, 0.0, false, null, 0),
+		VINTAGE(1.05, 1.05, 0.55, 0.3, false, new Color(200, 150, 90), 0.18),
+		COOL(1.0, 1.05, 1.1, 0.0, false, new Color(120, 160, 230), 0.12),
+		WARM(1.05, 1.0, 1.05, 0.0, false, new Color(235, 160, 90), 0.12),
+		NOIR(1.0, 1.35, 0.0, 0.25, false, null, 0);
+
+		public final double brightness, contrast, saturation, grain, tintStrength;
+		public final boolean sepia;
+		public final Color tintColor;
+
+		Filter(double brightness, double contrast, double saturation, double grain,
+				boolean sepia, Color tintColor, double tintStrength) {
+			this.brightness = brightness;
+			this.contrast = contrast;
+			this.saturation = saturation;
+			this.grain = grain;
+			this.sepia = sepia;
+			this.tintColor = tintColor;
+			this.tintStrength = tintStrength;
+		}
+
+		public static Filter fromString(String name) {
+			if (name == null) {
+				return NONE;
+			}
+			try {
+				return Filter.valueOf(name.trim().toUpperCase());
+			} catch (IllegalArgumentException e) {
+				return NONE;
+			}
+		}
+	}
+
+	/** Combines a camera's own postprocess settings with a filter preset — brightness/
+	 *  contrast/saturation/grain multiply together, sepia/tint come only from the filter. */
+	public static PostFX combine(PostFX base, Filter filter) {
+		return new PostFX(
+				base.brightness * filter.brightness,
+				base.contrast * filter.contrast,
+				base.saturation * filter.saturation,
+				Math.min(1.0, base.grain + filter.grain),
+				filter.sepia,
+				filter.tintColor,
+				filter.tintStrength);
 	}
 
 	private static Color applyPostFx(Color c, PostFX fx, double seedA, double seedB) {
@@ -607,6 +757,21 @@ public class Utils {
 			r = (rgb >> 16) & 0xff;
 			g = (rgb >> 8) & 0xff;
 			b = rgb & 0xff;
+		}
+
+		if (fx.sepia) {
+			float sr = 0.393f * r + 0.769f * g + 0.189f * b;
+			float sg = 0.349f * r + 0.686f * g + 0.168f * b;
+			float sb = 0.272f * r + 0.534f * g + 0.131f * b;
+			r = clampF(sr);
+			g = clampF(sg);
+			b = clampF(sb);
+		}
+
+		if (fx.tintColor != null && fx.tintStrength > 0) {
+			r = clampF((float) (r * (1 - fx.tintStrength) + fx.tintColor.getRed() * fx.tintStrength));
+			g = clampF((float) (g * (1 - fx.tintStrength) + fx.tintColor.getGreen() * fx.tintStrength));
+			b = clampF((float) (b * (1 - fx.tintStrength) + fx.tintColor.getBlue() * fx.tintStrength));
 		}
 
 		if (fx.grain > 0) {
@@ -643,9 +808,22 @@ public class Utils {
 				"_BUTTON", "_PRESSURE_PLATE", "_SIGN", "_HANGING_SIGN", "_WALL_SIGN", "_WALL_HANGING_SIGN" };
 		for (String suf : shapeSuffixes) {
 			if (name.endsWith(suf)) {
-				Material base = Material.matchMaterial(name.substring(0, name.length() - suf.length()));
+				String stem = name.substring(0, name.length() - suf.length());
+
+				// try the stem directly — works for non-wood shapes like COBBLESTONE_STAIRS
+				Material base = Material.matchMaterial(stem);
 				if (base != null) {
 					Color c = blocksMap.get(base);
+					if (c != null) return c;
+				}
+
+				// try stem + "_PLANKS" — this is what wood actually needs: OAK_STAIRS's
+				// stem is "OAK", which isn't a material on its own, but "OAK_PLANKS" is.
+				// Every wood-type stairs/slab/fence/door/etc. was silently falling through
+				// to gray before this, since the bare stem never matched anything.
+				Material planksBase = Material.matchMaterial(stem + "_PLANKS");
+				if (planksBase != null) {
+					Color c = blocksMap.get(planksBase);
 					if (c != null) return c;
 				}
 			}

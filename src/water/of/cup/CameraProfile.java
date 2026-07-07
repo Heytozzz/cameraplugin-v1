@@ -1,5 +1,6 @@
 package water.of.cup;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.bukkit.ChatColor;
@@ -82,6 +83,14 @@ public class CameraProfile {
 		return section.getConfigurationSection("recipe.ingredients");
 	}
 
+	// --- filters ---
+
+	/** This camera's own default filter (NONE, SEPIA, GRAYSCALE, VINTAGE, COOL, WARM, NOIR).
+	 *  Used as-is unless a film-variants entry (see below) overrides it for that shot. */
+	public Utils.Filter getFilter() {
+		return Utils.Filter.fromString(section.getString("filter", "NONE"));
+	}
+
 	// --- "paper"/film item consumed per picture ---
 
 	public String getPaperType() {
@@ -94,6 +103,51 @@ public class CameraProfile {
 
 	public String getPaperItemsAdderId() {
 		return section.getString("paper.itemsadder-id", "");
+	}
+
+	/** One kind of film this camera accepts: what item it is, and which filter using it applies. */
+	public static class FilmVariant {
+		public final String id;
+		public final String type;
+		public final String material;
+		public final String itemsAdderId;
+		public final Utils.Filter filter;
+
+		public FilmVariant(String id, String type, String material, String itemsAdderId, Utils.Filter filter) {
+			this.id = id;
+			this.type = type;
+			this.material = material;
+			this.itemsAdderId = itemsAdderId;
+			this.filter = filter;
+		}
+	}
+
+	/** Returns every film variant this camera accepts. If a "film-variants" section is
+	 *  configured, each entry there is its own item + filter (e.g. plain paper = NONE,
+	 *  a dye = SEPIA) — this is the "depends on the paper you use" mode. Otherwise falls
+	 *  back to a single variant built from the legacy paper.* keys plus this camera's
+	 *  own top-level filter. */
+	public List<FilmVariant> getFilmVariants() {
+		List<FilmVariant> variants = new ArrayList<>();
+		ConfigurationSection variantsSection = section.getConfigurationSection("film-variants");
+		if (variantsSection != null) {
+			for (String variantId : variantsSection.getKeys(false)) {
+				ConfigurationSection v = variantsSection.getConfigurationSection(variantId);
+				if (v == null) {
+					continue;
+				}
+				variants.add(new FilmVariant(
+						variantId,
+						v.getString("type", "VANILLA"),
+						v.getString("material", "PAPER"),
+						v.getString("itemsadder-id", ""),
+						Utils.Filter.fromString(v.getString("filter", "NONE"))));
+			}
+		}
+		if (variants.isEmpty()) {
+			variants.add(new FilmVariant("default", getPaperType(), getPaperMaterial(), getPaperItemsAdderId(), getFilter()));
+		}
+		return variants;
 	}
 
 	// --- shutter sound ---

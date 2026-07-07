@@ -78,40 +78,51 @@ public class ItemManager {
 	// "Paper"/film item — consumed once per picture
 	// ---------------------------------------------------------------
 
-	/** Whether the player has at least one of this profile's configured film item. */
-	public static boolean hasFilmItem(CameraProfile profile, Player player) {
-		if ("ITEMSADDER".equalsIgnoreCase(profile.getPaperType())) {
-			for (ItemStack stack : player.getInventory().getContents()) {
-				if (matchesItemsAdderId(stack, profile.getPaperItemsAdderId())) {
-					return true;
-				}
+	/** Returns the first film variant this profile accepts that the player is
+	 *  currently carrying, or null if they have none of them. Variants are checked
+	 *  in the order they're defined in config.yml. */
+	public static CameraProfile.FilmVariant findFilmVariant(CameraProfile profile, Player player) {
+		for (CameraProfile.FilmVariant variant : profile.getFilmVariants()) {
+			if (hasVariantItem(variant, player)) {
+				return variant;
 			}
-			return false;
 		}
-		Material mat = resolveVanillaPaperMaterial(profile);
-		return player.getInventory().contains(mat);
+		return null;
 	}
 
-	/** Removes exactly one unit of this profile's configured film item from the player's inventory. */
-	public static void removeOneFilmItem(CameraProfile profile, Player player) {
-		if ("ITEMSADDER".equalsIgnoreCase(profile.getPaperType())) {
+	/** Removes exactly one unit of the given film variant's item from the player's inventory. */
+	public static void removeOneFilmVariant(CameraProfile.FilmVariant variant, Player player) {
+		if ("ITEMSADDER".equalsIgnoreCase(variant.type)) {
 			for (ItemStack stack : player.getInventory().getContents()) {
-				if (matchesItemsAdderId(stack, profile.getPaperItemsAdderId())) {
+				if (matchesItemsAdderId(stack, variant.itemsAdderId)) {
 					stack.setAmount(stack.getAmount() - 1);
 					return;
 				}
 			}
 			return;
 		}
-		Material mat = resolveVanillaPaperMaterial(profile);
+		Material mat = resolveVariantMaterial(variant);
 		for (ItemStack stack : player.getInventory().all(mat).values()) {
 			stack.setAmount(stack.getAmount() - 1);
 			return;
 		}
 	}
 
-	private static Material resolveVanillaPaperMaterial(CameraProfile profile) {
-		Material mat = Material.matchMaterial(profile.getPaperMaterial());
+	private static boolean hasVariantItem(CameraProfile.FilmVariant variant, Player player) {
+		if ("ITEMSADDER".equalsIgnoreCase(variant.type)) {
+			for (ItemStack stack : player.getInventory().getContents()) {
+				if (matchesItemsAdderId(stack, variant.itemsAdderId)) {
+					return true;
+				}
+			}
+			return false;
+		}
+		Material mat = resolveVariantMaterial(variant);
+		return player.getInventory().contains(mat);
+	}
+
+	private static Material resolveVariantMaterial(CameraProfile.FilmVariant variant) {
+		Material mat = Material.matchMaterial(variant.material);
 		return mat != null ? mat : Material.PAPER;
 	}
 

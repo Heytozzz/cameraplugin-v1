@@ -315,6 +315,9 @@ public class Camera extends JavaPlugin {
 			if (!config.contains(base + "render.max-distance")) {
 				config.set(base + "render.max-distance", 256);
 			}
+			if (!config.contains(base + "filter")) {
+				config.set(base + "filter", "NONE");
+			}
 		}
 	}
 
@@ -343,6 +346,7 @@ public class Camera extends JavaPlugin {
 		config.set("cameras.default.paper.material", config.getString("settings.paper.item.material", "PAPER"));
 		config.set("cameras.default.paper.itemsadder-id",
 				config.getString("settings.paper.item.itemsadder-id", "yournamespace:film"));
+		config.set("cameras.default.filter", "NONE");
 		config.set("cameras.default.sound.key", "minecraft:block.dispenser.dispense");
 		config.set("cameras.default.sound.volume", 1.0);
 		config.set("cameras.default.sound.pitch", 1.0);
@@ -390,6 +394,7 @@ public class Camera extends JavaPlugin {
 		config.set("cameras.default.paper.type", "VANILLA");
 		config.set("cameras.default.paper.material", "PAPER");
 		config.set("cameras.default.paper.itemsadder-id", "yournamespace:film");
+		config.set("cameras.default.filter", "NONE");
 		config.set("cameras.default.sound.key", "minecraft:block.dispenser.dispense");
 		config.set("cameras.default.sound.volume", 1.0);
 		config.set("cameras.default.sound.pitch", 1.0);
@@ -424,6 +429,20 @@ public class Camera extends JavaPlugin {
 		config.set("cameras.polaroid.paper.type", "VANILLA");
 		config.set("cameras.polaroid.paper.material", "PAPER");
 		config.set("cameras.polaroid.paper.itemsadder-id", "yournamespace:polaroid-film");
+		config.set("cameras.polaroid.filter", "VINTAGE");
+		// Example of "filter depends on the paper you use": plain paper keeps this
+		// camera's own VINTAGE look, but loading a dye as "film" overrides the filter
+		// for that specific shot. Delete this whole film-variants section (and the
+		// plain paper.* above becomes the only option again) if you don't want this.
+		config.set("cameras.polaroid.film-variants.normal.type", "VANILLA");
+		config.set("cameras.polaroid.film-variants.normal.material", "PAPER");
+		config.set("cameras.polaroid.film-variants.normal.filter", "VINTAGE");
+		config.set("cameras.polaroid.film-variants.sepia.type", "VANILLA");
+		config.set("cameras.polaroid.film-variants.sepia.material", "BROWN_DYE");
+		config.set("cameras.polaroid.film-variants.sepia.filter", "SEPIA");
+		config.set("cameras.polaroid.film-variants.bw.type", "VANILLA");
+		config.set("cameras.polaroid.film-variants.bw.material", "GRAY_DYE");
+		config.set("cameras.polaroid.film-variants.bw.filter", "GRAYSCALE");
 		config.set("cameras.polaroid.sound.key", "minecraft:entity.player.attack.crit");
 		config.set("cameras.polaroid.sound.volume", 1.0);
 		config.set("cameras.polaroid.sound.pitch", 1.4);

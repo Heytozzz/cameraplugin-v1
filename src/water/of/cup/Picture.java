@@ -23,7 +23,7 @@ public class Picture {
 
 	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-	public static boolean takePicture(Player p, CameraProfile profile) {
+	public static boolean takePicture(Player p, CameraProfile profile, Utils.Filter filter) {
 
 		ItemStack itemStack = new ItemStack(Material.FILLED_MAP); // requires api-version: 1.13 in plugin.yml
 		MapMeta mapMeta = (MapMeta) itemStack.getItemMeta();
@@ -33,7 +33,7 @@ public class Picture {
 			mapView.removeRenderer(renderer);
 		}
 
-		Renderer customRenderer = new Renderer(profile);
+		Renderer customRenderer = new Renderer(profile, filter);
 		mapView.addRenderer(customRenderer);
 
 		mapMeta.setMapView(mapView);

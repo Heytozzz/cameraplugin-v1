@@ -19,9 +19,11 @@ public class Renderer extends MapRenderer {
 	private static final int RESOLUTION = 128;
 
 	private final CameraProfile profile;
+	private final Utils.Filter filter;
 
-	public Renderer(CameraProfile profile) {
+	public Renderer(CameraProfile profile, Utils.Filter filter) {
 		this.profile = profile;
+		this.filter = filter;
 	}
 
 	@Override
@@ -43,7 +45,7 @@ public class Renderer extends MapRenderer {
 		// the sky/terrain boundary as a depth discontinuity.
 		double skyDistance = maxDistance;
 
-		Utils.PostFX postFx = profile.getPostFx();
+		Utils.PostFX postFx = Utils.combine(profile.getPostFx(), filter);
 
 		Location eyes = player.getEyeLocation();
 		Vector eyesVec = eyes.toVector();

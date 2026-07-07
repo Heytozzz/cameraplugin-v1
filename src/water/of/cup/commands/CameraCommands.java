@@ -37,7 +37,7 @@ public class CameraCommands implements CommandExecutor {
 				profile = Camera.getInstance().getCameraProfiles().values().iterator().next();
 			}
 			if (profile != null) {
-				Picture.takePicture(p, profile);
+				Picture.takePicture(p, profile, profile.getFilter());
 			}
 		}
 		return true;

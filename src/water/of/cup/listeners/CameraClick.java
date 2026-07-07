@@ -126,9 +126,10 @@ public class CameraClick implements Listener {
 			return;
 		}
 
-		if (ItemManager.hasFilmItem(profile, p)) {
-			ItemManager.removeOneFilmItem(profile, p);
-			Picture.takePicture(p, profile);
+		CameraProfile.FilmVariant variant = ItemManager.findFilmVariant(profile, p);
+		if (variant != null) {
+			ItemManager.removeOneFilmVariant(variant, p);
+			Picture.takePicture(p, profile, variant.filter);
 		} else if (messages) {
 			p.sendMessage(ChatColor.translateAlternateColorCodes('&',
 					Camera.getInstance().getConfig().getString("settings.messages.nopaper")));
