@@ -38,6 +38,18 @@ public class AlbumManager {
 	private static final NamespacedKey ALBUM_TAG = new NamespacedKey("cameras", "album_book");
 	private static final int MAX_ENTRIES_PER_PAGE = 12;
 
+	/** Reads settings.album.colors.<key> (a Minecraft color name like "dark_green" or
+	 *  "gold") and falls back to the given default if missing/invalid — this is what
+	 *  makes every list/label color in the book configurable instead of hardcoded. */
+	private static NamedTextColor color(String key, NamedTextColor fallback) {
+		String name = Camera.getInstance().getConfig().getString("settings.album.colors." + key, null);
+		if (name == null) {
+			return fallback;
+		}
+		NamedTextColor resolved = NamedTextColor.NAMES.value(name.toLowerCase());
+		return resolved != null ? resolved : fallback;
+	}
+
 	private static final Set<EntityType> ANIMAL_TYPES = EnumSet.of(
 			EntityType.COW, EntityType.MOOSHROOM, EntityType.PIG, EntityType.CHICKEN, EntityType.SHEEP,
 			EntityType.RABBIT, EntityType.TURTLE, EntityType.PANDA, EntityType.FOX, EntityType.POLAR_BEAR,
@@ -84,8 +96,9 @@ public class AlbumManager {
 
 	/** Classifies whatever showed up in a photo (already distance-filtered by Renderer)
 	 *  and merges any new discoveries into the photographer's persistent album, sending
-	 *  a chat notification and live-updating any copy of the book they're carrying. */
-	public static void recordDiscoveries(Player player, Set<Material> blocks, Set<EntityType> entities) {
+	 *  a chat notification, a toast popup, a particle burst (+ Glowing on entities), and
+	 *  live-updating any copy of the book they're carrying. */
+	public static void recordDiscoveries(Player player, Map<Material, Block> blocks, Map<EntityType, Entity> entities) {
 		if (albumsConfig == null) {
 			load();
 		}
@@ -100,26 +113,37 @@ public class AlbumManager {
 
 		boolean changed = false;
 
-		for (Material mat : blocks) {
+		for (Map.Entry<Material, Block> entry : blocks.entrySet()) {
+			Material mat = entry.getKey();
 			if (Utils.isTreeMaterial(mat) && trees.add(mat.toString())) {
 				changed = true;
-				notifyDiscovery(player, Lang.get(player, "discovery.tree"), prettyName(mat.toString()));
+				announceDiscovery(player, "discovery.tree", mat.toString());
+				spawnDiscoveryParticles(entry.getValue().getLocation().add(0.5, 0.5, 0.5));
 			} else if (Utils.isPlantMaterial(mat) && plants.add(mat.toString())) {
 				changed = true;
-				notifyDiscovery(player, Lang.get(player, "discovery.plant"), prettyName(mat.toString()));
+				announceDiscovery(player, "discovery.plant", mat.toString());
+				spawnDiscoveryParticles(entry.getValue().getLocation().add(0.5, 0.5, 0.5));
 			}
 		}
 
-		for (EntityType type : entities) {
+		for (Map.Entry<EntityType, Entity> entry : entities.entrySet()) {
+			EntityType type = entry.getKey();
+			Entity entity = entry.getValue();
 			if (ANIMAL_TYPES.contains(type) && animals.add(type.toString())) {
 				changed = true;
-				notifyDiscovery(player, Lang.get(player, "discovery.animal"), prettyName(type.toString()));
+				announceDiscovery(player, "discovery.animal", type.toString());
+				spawnDiscoveryParticles(entity.getLocation().add(0, 1, 0));
+				glow(entity);
 			} else if (HOSTILE_TYPES.contains(type) && hostiles.add(type.toString())) {
 				changed = true;
-				notifyDiscovery(player, Lang.get(player, "discovery.hostile"), prettyName(type.toString()));
+				announceDiscovery(player, "discovery.hostile", type.toString());
+				spawnDiscoveryParticles(entity.getLocation().add(0, 1, 0));
+				glow(entity);
 			} else if (BOSS_TYPES.contains(type) && bosses.add(type.toString())) {
 				changed = true;
-				notifyDiscovery(player, Lang.get(player, "discovery.boss"), prettyName(type.toString()));
+				announceDiscovery(player, "discovery.boss", type.toString());
+				spawnDiscoveryParticles(entity.getLocation().add(0, 1, 0));
+				glow(entity);
 			}
 		}
 
@@ -129,7 +153,7 @@ public class AlbumManager {
 		String biomeName = biome.getKey().getKey();
 		if (biomes.add(biomeName)) {
 			changed = true;
-			notifyDiscovery(player, Lang.get(player, "discovery.biome"), prettyName(biomeName));
+			announceDiscovery(player, "discovery.biome", biomeName);
 		}
 
 		if (changed) {
@@ -144,8 +168,90 @@ public class AlbumManager {
 		}
 	}
 
-	private static void notifyDiscovery(Player player, String category, String name) {
+	private static void announceDiscovery(Player player, String langKey, String rawName) {
+		String category = Lang.get(player, langKey);
+		String name = prettyName(rawName);
 		player.sendMessage(ChatColor.GOLD + "\u2605 " + category + ": " + ChatColor.WHITE + name);
+		showToast(player, iconFor(langKey), category + ": " + name);
+	}
+
+	private static Material iconFor(String langKey) {
+		switch (langKey) {
+			case "discovery.tree": return Material.OAK_SAPLING;
+			case "discovery.plant": return Material.POPPY;
+			case "discovery.animal": return Material.EGG;
+			case "discovery.hostile": return Material.ROTTEN_FLESH;
+			case "discovery.boss": return Material.NETHER_STAR;
+			case "discovery.biome": return Material.FILLED_MAP;
+			default: return Material.BOOK;
+		}
+	}
+
+	/** Uses the same trick many plugins use for a custom "Recipe Unlocked!"-style toast:
+	 *  register a hidden, temporary advancement with our own icon/title, grant it (which
+	 *  triggers the toast popup), then revoke and unload it a few seconds later so it
+	 *  never shows up in the player's actual advancement tree. Wrapped defensively since
+	 *  the advancement JSON schema has shifted across versions — a failure here should
+	 *  never break the actual discovery being recorded. */
+	private static void showToast(Player player, Material icon, String title) {
+		try {
+			NamespacedKey key = new NamespacedKey("cameras", "toast_" + java.util.UUID.randomUUID());
+			String json = "{"
+					+ "\"criteria\":{\"impossible\":{\"trigger\":\"minecraft:impossible\"}},"
+					+ "\"display\":{"
+					+ "\"icon\":{\"id\":\"minecraft:" + icon.getKey().getKey() + "\"},"
+					+ "\"title\":{\"text\":\"" + escapeJson(title) + "\"},"
+					+ "\"description\":{\"text\":\"\"},"
+					+ "\"frame\":\"task\","
+					+ "\"announce_to_chat\":false,"
+					+ "\"show_toast\":true,"
+					+ "\"hidden\":true"
+					+ "}}";
+			Bukkit.getUnsafe().loadAdvancement(key, json);
+			org.bukkit.advancement.Advancement advancement = Bukkit.getAdvancement(key);
+			if (advancement == null) {
+				return;
+			}
+			org.bukkit.advancement.AdvancementProgress progress = player.getAdvancementProgress(advancement);
+			for (String criterion : progress.getRemainingCriteria()) {
+				progress.awardCriteria(criterion);
+			}
+			Bukkit.getScheduler().runTaskLater(Camera.getInstance(), () -> {
+				for (String criterion : new ArrayList<>(progress.getAwardedCriteria())) {
+					progress.revokeCriteria(criterion);
+				}
+				Bukkit.getUnsafe().removeAdvancement(key);
+			}, 100L);
+		} catch (Throwable t) {
+			Bukkit.getLogger().warning("[Cameras] Couldn't show discovery toast (non-fatal): " + t.getMessage());
+		}
+	}
+
+	private static String escapeJson(String s) {
+		return s.replace("\\", "\\\\").replace("\"", "\\\"");
+	}
+
+	private static void spawnDiscoveryParticles(org.bukkit.Location loc) {
+		if (loc == null || loc.getWorld() == null) {
+			return;
+		}
+		String particleName = Camera.getInstance().getConfig().getString("settings.album.particle", "HAPPY_VILLAGER");
+		org.bukkit.Particle particle;
+		try {
+			particle = org.bukkit.Particle.valueOf(particleName.toUpperCase());
+		} catch (IllegalArgumentException e) {
+			particle = org.bukkit.Particle.HAPPY_VILLAGER;
+		}
+		loc.getWorld().spawnParticle(particle, loc, 18, 0.4, 0.4, 0.4, 0.01);
+	}
+
+	private static void glow(Entity entity) {
+		if (entity == null || !entity.isValid() || !(entity instanceof org.bukkit.entity.LivingEntity)) {
+			return;
+		}
+		int ticks = Camera.getInstance().getConfig().getInt("settings.album.glow-ticks", 100);
+		((org.bukkit.entity.LivingEntity) entity).addPotionEffect(
+				new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.GLOWING, ticks, 0, false, false));
 	}
 
 	private static String prettyName(String enumName) {
@@ -208,28 +314,28 @@ public class AlbumManager {
 		int page = 1; // page 1 = index
 
 		int plantListStart = page + 1;
-		int plantPages = listPageCount(plants.size());
-		page += plantPages;
+		page += listPageCount(plants.size());
 
 		int treeListStart = page + 1;
-		int treePages = listPageCount(trees.size());
-		page += treePages;
+		page += listPageCount(trees.size());
 
 		int animalListStart = page + 1;
-		int animalPages = listPageCount(animals.size());
-		page += animalPages;
+		page += listPageCount(animals.size());
 
 		int hostileListStart = page + 1;
-		int hostilePages = listPageCount(hostiles.size());
-		page += hostilePages;
+		page += listPageCount(hostiles.size());
 
 		int bossListStart = page + 1;
-		int bossPages = listPageCount(bosses.size());
-		page += bossPages;
+		page += listPageCount(bosses.size());
 
 		int biomeListStart = page + 1;
-		int biomePages = listPageCount(biomes.size());
-		page += biomePages;
+		page += listPageCount(biomes.size());
+
+		int plantDetailStart = page + 1;
+		page += plants.size();
+
+		int treeDetailStart = page + 1;
+		page += trees.size();
 
 		int animalDetailStart = page + 1;
 		page += animals.size();
@@ -245,27 +351,33 @@ public class AlbumManager {
 				bosses.size(), biomes.size(), plantListStart, treeListStart, animalListStart,
 				hostileListStart, bossListStart, biomeListStart));
 
-		pages.addAll(buildListPages(player, "book.plants", plants, null, 1));
-		pages.addAll(buildListPages(player, "book.trees", trees, null, 1));
-		pages.addAll(buildListPages(player, "book.animals", animals, animalDetailStart, 1));
-		pages.addAll(buildListPages(player, "book.hostiles", hostiles, hostileDetailStart, 1));
-		pages.addAll(buildListPages(player, "book.bosses", bosses, bossDetailStart, 1));
-		pages.addAll(buildListPages(player, "book.biomes", biomes, null, 1));
+		pages.addAll(buildListPages(player, "book.plants", "plants", plants, plantDetailStart, 1));
+		pages.addAll(buildListPages(player, "book.trees", "trees", trees, treeDetailStart, 1));
+		pages.addAll(buildListPages(player, "book.animals", "animals", animals, animalDetailStart, 1));
+		pages.addAll(buildListPages(player, "book.hostiles", "hostiles", hostiles, hostileDetailStart, 1));
+		pages.addAll(buildListPages(player, "book.bosses", "bosses", bosses, bossDetailStart, 1));
+		pages.addAll(buildListPages(player, "book.biomes", "biomes", biomes, null, 1));
 
+		for (int i = 0; i < plants.size(); i++) {
+			pages.add(buildPlantDetailPage(player, plants.get(i), plantListStart));
+		}
+		for (int i = 0; i < trees.size(); i++) {
+			pages.add(buildPlantDetailPage(player, trees.get(i), treeListStart));
+		}
 		for (int i = 0; i < animals.size(); i++) {
-			pages.add(buildDetailPage(player, animals.get(i), animalListStart));
+			pages.add(buildEntityDetailPage(player, animals.get(i), animalListStart));
 		}
 		for (int i = 0; i < hostiles.size(); i++) {
-			pages.add(buildDetailPage(player, hostiles.get(i), hostileListStart));
+			pages.add(buildEntityDetailPage(player, hostiles.get(i), hostileListStart));
 		}
 		for (int i = 0; i < bosses.size(); i++) {
-			pages.add(buildDetailPage(player, bosses.get(i), bossListStart));
+			pages.add(buildEntityDetailPage(player, bosses.get(i), bossListStart));
 		}
 
 		BookMeta meta = (BookMeta) book.getItemMeta();
 		meta.title(Component.text(Lang.get(player, "book.title")));
 		meta.author(Component.text(player.getName()));
-		meta.addPages(pages.toArray(new Component[0]));
+		meta.pages(pages.toArray(new Component[0]));
 		meta.getPersistentDataContainer().set(ALBUM_TAG, PersistentDataType.BOOLEAN, true);
 		book.setItemMeta(meta);
 	}
@@ -283,37 +395,39 @@ public class AlbumManager {
 	private static Component buildIndexPage(Player player, int plantCount, int treeCount, int animalCount,
 			int hostileCount, int bossCount, int biomeCount, int plantPage, int treePage, int animalPage,
 			int hostilePage, int biomePage, int bossListPage) {
-		Component page = Component.text(Lang.get(player, "book.index"), NamedTextColor.DARK_BLUE, TextDecoration.BOLD)
+		Component page = Component.text(Lang.get(player, "book.index"), color("header", NamedTextColor.DARK_BLUE), TextDecoration.BOLD)
 				.appendNewline().appendNewline();
 
-		page = page.append(indexLine(player, "book.plants", plantCount, Utils.getTotalPlantMaterials(), plantPage))
-				.append(indexLine(player, "book.trees", treeCount, Utils.getTotalTreeMaterials(), treePage))
-				.append(indexLine(player, "book.animals", animalCount, ANIMAL_TYPES.size(), animalPage))
-				.append(indexLine(player, "book.hostiles", hostileCount, HOSTILE_TYPES.size(), hostilePage))
-				.append(indexLine(player, "book.bosses", bossCount, BOSS_TYPES.size(), bossListPage))
-				.append(indexLine(player, "book.biomes", biomeCount, Biome.values().length, biomePage));
+		page = page.append(indexLine(player, "book.plants", "plants", plantCount, Utils.getTotalPlantMaterials(), plantPage))
+				.append(indexLine(player, "book.trees", "trees", treeCount, Utils.getTotalTreeMaterials(), treePage))
+				.append(indexLine(player, "book.animals", "animals", animalCount, ANIMAL_TYPES.size(), animalPage))
+				.append(indexLine(player, "book.hostiles", "hostiles", hostileCount, HOSTILE_TYPES.size(), hostilePage))
+				.append(indexLine(player, "book.bosses", "bosses", bossCount, BOSS_TYPES.size(), bossListPage))
+				.append(indexLine(player, "book.biomes", "biomes", biomeCount, Biome.values().length, biomePage));
 
 		return page;
 	}
 
-	private static Component indexLine(Player player, String labelKey, int have, int total, int targetPage) {
+	private static Component indexLine(Player player, String labelKey, String colorKey, int have, int total, int targetPage) {
 		String label = Lang.get(player, labelKey);
-		return Component.text(label + ": ", NamedTextColor.BLACK)
-				.append(Component.text(have + "/" + total, NamedTextColor.DARK_GREEN))
+		return Component.text(label + ": ", color("info-label", NamedTextColor.BLACK))
+				.append(Component.text(have + "/" + total, color(colorKey, NamedTextColor.DARK_GREEN)))
 				.clickEvent(ClickEvent.changePage(targetPage))
 				.hoverEvent(HoverEvent.showText(Component.text(Lang.get(player, "book.clickhint"), NamedTextColor.GRAY)))
 				.decorate(TextDecoration.UNDERLINED)
 				.appendNewline();
 	}
 
-	/** detailStart == null means entries aren't clickable to a detail page (plants, trees, biomes). */
-	private static List<Component> buildListPages(Player player, String titleKey, List<String> entries,
+	/** detailStart == null means entries aren't clickable to a detail page (biomes only, now). */
+	private static List<Component> buildListPages(Player player, String titleKey, String colorKey, List<String> entries,
 			Integer detailStart, int backPage) {
 		List<Component> result = new ArrayList<>();
 		String title = Lang.get(player, titleKey);
+		NamedTextColor headerColor = color("header", NamedTextColor.DARK_BLUE);
+		NamedTextColor entryColor = color(colorKey, NamedTextColor.DARK_GREEN);
 
 		if (entries.isEmpty()) {
-			result.add(Component.text(title, NamedTextColor.DARK_BLUE, TextDecoration.BOLD)
+			result.add(Component.text(title, headerColor, TextDecoration.BOLD)
 					.appendNewline().appendNewline()
 					.append(Component.text(Lang.get(player, "book.empty"), NamedTextColor.GRAY))
 					.appendNewline().appendNewline()
@@ -323,7 +437,7 @@ public class AlbumManager {
 
 		for (int i = 0; i < entries.size(); i += MAX_ENTRIES_PER_PAGE) {
 			int end = Math.min(i + MAX_ENTRIES_PER_PAGE, entries.size());
-			Component page = Component.text(title, NamedTextColor.DARK_BLUE, TextDecoration.BOLD);
+			Component page = Component.text(title, headerColor, TextDecoration.BOLD);
 			if (entries.size() > MAX_ENTRIES_PER_PAGE) {
 				page = page.append(Component.text(" (" + (i + 1) + "-" + end + "/" + entries.size() + ")", NamedTextColor.DARK_GRAY));
 			}
@@ -331,16 +445,11 @@ public class AlbumManager {
 
 			for (int j = i; j < end; j++) {
 				String raw = entries.get(j);
-				Component nameComp = Component.text("- " + prettyName(raw), NamedTextColor.DARK_GREEN);
+				Component nameComp = Component.text("- " + prettyName(raw), entryColor);
 				if (detailStart != null) {
-					EntityInfoData.Info info = tryGetEntityInfo(raw);
-					Component hover = info != null
-							? Component.text(heartsString(info.maxHealth) + " (" + (int) Math.round(info.maxHealth / 2.0)
-									+ " " + Lang.get(player, "info.hearts") + ")", NamedTextColor.RED)
-							: Component.text(prettyName(raw));
 					nameComp = nameComp.decorate(TextDecoration.UNDERLINED)
 							.clickEvent(ClickEvent.changePage(detailStart + j))
-							.hoverEvent(HoverEvent.showText(hover));
+							.hoverEvent(HoverEvent.showText(buildHoverText(player, raw)));
 				}
 				page = page.append(nameComp).appendNewline();
 			}
@@ -350,21 +459,35 @@ public class AlbumManager {
 		return result;
 	}
 
-	private static Component buildDetailPage(Player player, String rawEntityType, int backPage) {
+	private static Component buildHoverText(Player player, String raw) {
+		EntityInfoData.Info entityInfo = tryGetEntityInfo(raw);
+		if (entityInfo != null) {
+			return Component.text(heartsString(entityInfo.maxHealth) + " (" + (int) Math.round(entityInfo.maxHealth / 2.0)
+					+ " " + Lang.get(player, "info.hearts") + ")", color("hearts", NamedTextColor.RED));
+		}
+		PlantInfoData.Info plantInfo = tryGetPlantInfo(raw);
+		if (plantInfo != null) {
+			return Component.text(plantInfo.spawnZones, color("plants", NamedTextColor.DARK_GREEN));
+		}
+		return Component.text(prettyName(raw));
+	}
+
+	private static Component buildEntityDetailPage(Player player, String rawEntityType, int backPage) {
 		EntityInfoData.Info info = tryGetEntityInfo(rawEntityType);
-		Component page = Component.text(prettyName(rawEntityType), NamedTextColor.DARK_RED, TextDecoration.BOLD)
+		Component page = Component.text(prettyName(rawEntityType), color("header", NamedTextColor.DARK_RED), TextDecoration.BOLD)
 				.appendNewline().appendNewline();
 
 		if (info != null) {
-			page = page.append(Component.text(Lang.get(player, "info.health") + ": ", NamedTextColor.BLACK))
-					.append(Component.text(heartsString(info.maxHealth), NamedTextColor.RED))
+			NamedTextColor labelColor = color("info-label", NamedTextColor.BLACK);
+			page = page.append(Component.text(Lang.get(player, "info.health") + ": ", labelColor))
+					.append(Component.text(heartsString(info.maxHealth), color("hearts", NamedTextColor.RED)))
 					.appendNewline()
-					.append(Component.text(Lang.get(player, "info.biomes") + ": ", NamedTextColor.BLACK))
-					.append(Component.text(info.spawnBiomes, NamedTextColor.DARK_GREEN))
+					.append(Component.text(Lang.get(player, "info.biomes") + ": ", labelColor))
+					.append(Component.text(info.spawnBiomes, color("info-value", NamedTextColor.DARK_GREEN)))
 					.appendNewline();
 
 			if (!info.food.isEmpty()) {
-				page = page.append(Component.text(Lang.get(player, "info.food") + ": ", NamedTextColor.BLACK))
+				page = page.append(Component.text(Lang.get(player, "info.food") + ": ", labelColor))
 						.append(Component.text(materialListText(info.food), NamedTextColor.GOLD))
 						.appendNewline();
 			} else {
@@ -372,7 +495,7 @@ public class AlbumManager {
 			}
 
 			if (!info.breedsWith.isEmpty()) {
-				page = page.append(Component.text(Lang.get(player, "info.breeding") + ": ", NamedTextColor.BLACK))
+				page = page.append(Component.text(Lang.get(player, "info.breeding") + ": ", labelColor))
 						.append(Component.text(materialListText(info.breedsWith), NamedTextColor.LIGHT_PURPLE))
 						.appendNewline();
 			} else {
@@ -384,14 +507,41 @@ public class AlbumManager {
 		return page;
 	}
 
+	private static Component buildPlantDetailPage(Player player, String rawMaterial, int backPage) {
+		PlantInfoData.Info info = tryGetPlantInfo(rawMaterial);
+		Component page = Component.text(prettyName(rawMaterial), color("header", NamedTextColor.DARK_RED), TextDecoration.BOLD)
+				.appendNewline().appendNewline();
+
+		if (info != null) {
+			NamedTextColor labelColor = color("info-label", NamedTextColor.BLACK);
+			page = page.append(Component.text(Lang.get(player, "info.drops") + ": ", labelColor))
+					.append(Component.text(info.drops, color("info-value", NamedTextColor.GOLD)))
+					.appendNewline()
+					.append(Component.text(Lang.get(player, "info.biomes") + ": ", labelColor))
+					.append(Component.text(info.spawnZones, color("info-value", NamedTextColor.DARK_GREEN)))
+					.appendNewline();
+		}
+
+		page = page.appendNewline().append(backLink(player, backPage));
+		return page;
+	}
+
 	private static Component backLink(Player player, int backPage) {
-		return Component.text(Lang.get(player, "book.back"), NamedTextColor.BLUE, TextDecoration.UNDERLINED)
+		return Component.text(Lang.get(player, "book.back"), color("link", NamedTextColor.BLUE), TextDecoration.UNDERLINED)
 				.clickEvent(ClickEvent.changePage(backPage));
 	}
 
 	private static EntityInfoData.Info tryGetEntityInfo(String rawEntityType) {
 		try {
 			return EntityInfoData.get(EntityType.valueOf(rawEntityType));
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+	}
+
+	private static PlantInfoData.Info tryGetPlantInfo(String rawMaterial) {
+		try {
+			return PlantInfoData.get(Material.valueOf(rawMaterial));
 		} catch (IllegalArgumentException e) {
 			return null;
 		}

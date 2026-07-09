@@ -1,8 +1,8 @@
 package water.of.cup;
 
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Predicate;
 
 import org.bukkit.Bukkit;
@@ -10,6 +10,7 @@ import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -59,8 +60,8 @@ public class Renderer extends MapRenderer {
 	private double[] prevColumnDistance;
 
 	// What actually showed up in this photo, for the collection album feature.
-	private final Set<Material> discoveredBlocks = new HashSet<>();
-	private final Set<EntityType> discoveredEntities = new HashSet<>();
+	private final Map<Material, Block> discoveredBlocks = new HashMap<>();
+	private final Map<EntityType, Entity> discoveredEntities = new HashMap<>();
 
 	public Renderer(CameraProfile profile, Utils.Filter filter) {
 		this.profile = profile;
@@ -170,7 +171,7 @@ public class Renderer extends MapRenderer {
 				double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
 				colorByte = Utils.colorFromEntity(entityResult.getHitEntity(), entityResult.getHitPosition(), shade, fogBlend, postFx);
 				if (currentDistance <= detailDistance) {
-					discoveredEntities.add(entityResult.getHitEntity().getType());
+					discoveredEntities.putIfAbsent(entityResult.getHitEntity().getType(), entityResult.getHitEntity());
 				}
 			} else if (blockResult != null) {
 				currentDistance = blockDist;
@@ -181,7 +182,7 @@ public class Renderer extends MapRenderer {
 				colorByte = Utils.colorFromType(blockResult.getHitBlock(), blockResult.getHitPosition(),
 						blockResult.getHitBlockFace(), shade, fogBlend, postFx);
 				if (currentDistance <= detailDistance) {
-					discoveredBlocks.add(blockResult.getHitBlock().getType());
+					discoveredBlocks.putIfAbsent(blockResult.getHitBlock().getType(), blockResult.getHitBlock());
 				}
 			} else {
 				// no block/entity hit: sky

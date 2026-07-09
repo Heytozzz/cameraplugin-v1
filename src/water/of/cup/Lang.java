@@ -36,6 +36,7 @@ public class Lang {
 		en.put("book.back", "< Back to index");
 		en.put("book.clickhint", "(click to open)");
 		en.put("info.health", "Max health");
+		en.put("info.drops", "Drops");
 		en.put("info.biomes", "Spawns in");
 		en.put("info.food", "Eats");
 		en.put("info.breeding", "Breeds with");
@@ -63,6 +64,7 @@ public class Lang {
 		es.put("book.back", "< Volver al indice");
 		es.put("book.clickhint", "(click para abrir)");
 		es.put("info.health", "Vida maxima");
+		es.put("info.drops", "Suelta");
 		es.put("info.biomes", "Se genera en");
 		es.put("info.food", "Come");
 		es.put("info.breeding", "Se reproduce con");

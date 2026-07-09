@@ -276,6 +276,24 @@ public class Camera extends JavaPlugin {
 		// distant background shouldn't fill in the album.
 		defaultConfig.put("settings.album.detail-distance", 15);
 
+		// particle effect + glow duration (entities only) shown at a newly-discovered
+		// plant/mob's location. Particle must be a valid org.bukkit.Particle name.
+		defaultConfig.put("settings.album.particle", "HAPPY_VILLAGER");
+		defaultConfig.put("settings.album.glow-ticks", 100);
+
+		// book text colors — any Minecraft color name (e.g. "dark_green", "gold", "aqua")
+		defaultConfig.put("settings.album.colors.header", "dark_blue");
+		defaultConfig.put("settings.album.colors.plants", "dark_green");
+		defaultConfig.put("settings.album.colors.trees", "dark_green");
+		defaultConfig.put("settings.album.colors.animals", "dark_green");
+		defaultConfig.put("settings.album.colors.hostiles", "dark_green");
+		defaultConfig.put("settings.album.colors.bosses", "dark_red");
+		defaultConfig.put("settings.album.colors.biomes", "dark_green");
+		defaultConfig.put("settings.album.colors.hearts", "red");
+		defaultConfig.put("settings.album.colors.info-label", "black");
+		defaultConfig.put("settings.album.colors.info-value", "dark_green");
+		defaultConfig.put("settings.album.colors.link", "blue");
+
 		for (String key : defaultConfig.keySet()) {
 			if (!config.contains(key)) {
 				config.set(key, defaultConfig.get(key));
