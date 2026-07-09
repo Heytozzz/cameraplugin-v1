@@ -53,6 +53,8 @@ public class Renderer extends MapRenderer {
 	private Utils.PostFX postFx;
 	private Predicate<Entity> entityFilter;
 
+	private double detailDistance;
+
 	private byte[][] canvasBytes;
 	private double[] prevColumnDistance;
 
@@ -114,6 +116,7 @@ public class Renderer extends MapRenderer {
 		this.columnsPerTick = Math.max(1, profile.getColumnsPerTick());
 
 		this.postFx = Utils.combine(profile.getPostFx(), filter);
+		this.detailDistance = Camera.getInstance().getConfig().getDouble("settings.album.detail-distance", 15);
 
 		// Captures every entity except the photographer — the old "instanceof Animals"
 		// check silently excluded squids, dolphins and bats, which was the "some mobs
@@ -166,7 +169,9 @@ public class Renderer extends MapRenderer {
 						shadowsEnabled, currentDistance, y, prevColumnDistance, reliefEnabled, reliefStrength);
 				double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
 				colorByte = Utils.colorFromEntity(entityResult.getHitEntity(), entityResult.getHitPosition(), shade, fogBlend, postFx);
-				discoveredEntities.add(entityResult.getHitEntity().getType());
+				if (currentDistance <= detailDistance) {
+					discoveredEntities.add(entityResult.getHitEntity().getType());
+				}
 			} else if (blockResult != null) {
 				currentDistance = blockDist;
 				byte lightLevel = blockResult.getHitBlock().getRelative(blockResult.getHitBlockFace()).getLightLevel();
@@ -175,7 +180,9 @@ public class Renderer extends MapRenderer {
 				double fogBlend = fogFactor(currentDistance, fogEnabled, fogDistance);
 				colorByte = Utils.colorFromType(blockResult.getHitBlock(), blockResult.getHitPosition(),
 						blockResult.getHitBlockFace(), shade, fogBlend, postFx);
-				discoveredBlocks.add(blockResult.getHitBlock().getType());
+				if (currentDistance <= detailDistance) {
+					discoveredBlocks.add(blockResult.getHitBlock().getType());
+				}
 			} else {
 				// no block/entity hit: sky
 				canvas.setPixel(x, y, MapPalette.PALE_BLUE);

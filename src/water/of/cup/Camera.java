@@ -268,6 +268,14 @@ public class Camera extends JavaPlugin {
 		defaultConfig.put("settings.camera.resourcepack.github-repo", "InventivetalentDev/minecraft-assets");
 		defaultConfig.put("settings.camera.resourcepack.github-ref", "1.21.4");
 
+		// language: "auto" (use each player's client locale), or force "en"/"es"
+		defaultConfig.put("settings.language", "auto");
+
+		// collection album: small details (plants, mobs) only count as "discovered" if
+		// the photographer was standing within this many blocks — a tiny speck in the
+		// distant background shouldn't fill in the album.
+		defaultConfig.put("settings.album.detail-distance", 15);
+
 		for (String key : defaultConfig.keySet()) {
 			if (!config.contains(key)) {
 				config.set(key, defaultConfig.get(key));

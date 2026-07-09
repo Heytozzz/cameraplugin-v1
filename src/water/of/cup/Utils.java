@@ -556,19 +556,55 @@ public class Utils {
 
 	/** Whether a block counts as "a plant" for the collection album — the sparse-plant
 	 *  list already covers most of them (grass, flowers, crops, vines...), plus a few
-	 *  solid plant-ish blocks that aren't sparse (leaves, mushrooms, cactus...). */
+	 *  solid plant-ish blocks that aren't sparse (mushrooms, cactus...). Tree leaves are
+	 *  their own "trees" subcategory (see isTreeMaterial), not counted here. */
 	public static boolean isPlantMaterial(Material mat) {
+		if (isTreeMaterial(mat)) {
+			return false;
+		}
 		if (SPARSE_PLANT_COVERAGE.containsKey(mat)) {
 			return true;
 		}
 		String name = mat.toString();
-		if (name.endsWith("_LEAVES") || name.contains("MUSHROOM") || name.equals("CACTUS")
+		if (name.contains("MUSHROOM") || name.equals("CACTUS")
 				|| name.contains("MOSS") || name.contains("AZALEA") || name.equals("BAMBOO_BLOCK")
 				|| name.equals("SUGAR_CANE") || name.equals("MELON") || name.equals("PUMPKIN")
 				|| name.equals("SNIFFER_EGG") || name.equals("TURTLE_EGG")) {
 			return true;
 		}
 		return false;
+	}
+
+	/** Tree leaves — their own subcategory in the collection album, separate from plants. */
+	public static boolean isTreeMaterial(Material mat) {
+		return mat.toString().endsWith("_LEAVES");
+	}
+
+	private static Integer plantMaterialCount = null;
+	private static Integer treeMaterialCount = null;
+
+	/** Total number of distinct plant materials that exist, for the album's X/Y display. */
+	public static int getTotalPlantMaterials() {
+		if (plantMaterialCount == null) {
+			int count = 0;
+			for (Material mat : Material.values()) {
+				if (isPlantMaterial(mat)) count++;
+			}
+			plantMaterialCount = count;
+		}
+		return plantMaterialCount;
+	}
+
+	/** Total number of distinct tree (leaf) materials that exist, for the album's X/Y display. */
+	public static int getTotalTreeMaterials() {
+		if (treeMaterialCount == null) {
+			int count = 0;
+			for (Material mat : Material.values()) {
+				if (isTreeMaterial(mat)) count++;
+			}
+			treeMaterialCount = count;
+		}
+		return treeMaterialCount;
 	}
 
 	/** Deterministic pseudo-random value in 0..1 from world-space coordinates, exposed
